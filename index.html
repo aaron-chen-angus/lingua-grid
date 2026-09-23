@@ -503,7 +503,7 @@ a { color: var(--grid-cyan); }
     <div class="panel">
       <h1 class="logo">LINGUA<span class="slash">//</span>GRID</h1>
       <div class="tagline">Microphone sync</div>
-      <p id="micMsg">Allow microphone access, then say <b>"ready"</b> to confirm the mic works.</p>
+      <p id="micMsg">Allow microphone access, then say <b>"ready"</b> (or anything) to confirm the mic works. Once the bar moves, you can press <b>ENTER GRID</b>.</p>
       <div class="meter"><i id="micBar"></i></div>
       <div class="interim" id="micInterim"></div>
       <ul class="checklist">
@@ -637,8 +637,8 @@ const CONFIG = {
   ],
   // If a language has no phrase at the chosen level, fall back through this order.
   levelFallback: { easy: ['easy','medium','intermediate'], medium: ['medium','easy','intermediate'], intermediate: ['intermediate','medium','easy'] },
-  pool: ['zh','ta','hi','ms','id','th','my','vi','fr','de','es','he','ar','ru'],
-  backupLanguages: ['ja','ko','it','pt','fil'],
+  pool: ['zh','ta','hi','ms','id','th','my','vi','fr','de','es','he','ar','ru','ja','ko'],
+  backupLanguages: ['it','pt','fil'],
   threshold: { default: 0.65, th: 0.55, my: 0.55, ta: 0.55 },
   perfectAt: 0.90,
   perfectBonusMs: 1000,
@@ -832,9 +832,9 @@ const LANGS = {
   he: { name: 'Hebrew',           asr: 'he-IL', asrRetry: 'iw-IL', tts: 'he', flag: 'IL', dir: 'rtl' },
   ar: { name: 'Arabic',           asr: 'ar-SA', tts: 'ar', flag: 'SA', dir: 'rtl' },
   ru: { name: 'Russian',          asr: 'ru-RU', tts: 'ru', flag: 'RU', dir: 'ltr' },
-  // backups
   ja: { name: 'Japanese',         asr: 'ja-JP', tts: 'ja', flag: 'JP', dir: 'ltr' },
   ko: { name: 'Korean',           asr: 'ko-KR', tts: 'ko', flag: 'KR', dir: 'ltr' },
+  // backup-only languages (used to backfill if fewer than 9 pool langs are eligible)
   it: { name: 'Italian',          asr: 'it-IT', tts: 'it', flag: 'IT', dir: 'ltr' },
   pt: { name: 'Portuguese',       asr: 'pt-PT', tts: 'pt', flag: 'PT', dir: 'ltr' },
   fil:{ name: 'Filipino',         asr: 'fil-PH', asrRetry: 'tl-PH', tts: 'fil', flag: 'PH', dir: 'ltr' }
@@ -2571,7 +2571,7 @@ function wireRegister() {
 
 /* ---- Mic check (R2.3–2.5) ---- */
 const MicCheck = (function () {
-  let raf = null, listening = false, active = false;
+  let raf = null, listening = false, active = false, heardOk = false;
 
   function setLine(id, cls, sub) {
     const li = el(id);
@@ -2581,6 +2581,7 @@ const MicCheck = (function () {
 
   async function enter() {
     active = true;
+    heardOk = false;
     UI.show('mic');
     el('micDenied').classList.add('hidden');
     setLine('mic-perm', '', '');
@@ -2596,13 +2597,36 @@ const MicCheck = (function () {
       await Speech.initMic();
       setLine('mic-perm', 'ok', 'granted');
       el('micDenied').classList.add('hidden');
+      // Mic permission granted = the player can already enter. The "ready"
+      // voice test is an optional confirmation, never a hard gate.
+      el('micStart').disabled = false;
       meter();
+      watchLevel();
       readyTest();
     } catch (e) {
       setLine('mic-perm', 'bad', 'denied');
       el('micDenied').classList.remove('hidden');
       el('micMsg').innerHTML = 'Microphone access is required to play.';
     }
+  }
+
+  // Confirm the mic works purely from the level meter: if we detect real
+  // input energy, mark the "ready" check satisfied even if ASR returns nothing.
+  function watchLevel() {
+    let loud = 0;
+    const loop = () => {
+      if (!active) return;
+      if (heardOk) return;                 // already confirmed by voice
+      if (Speech.level() > 0.12) {
+        loud++;
+        if (loud > 6) {                    // ~sustained sound over several frames
+          setLine('mic-ready', 'ok', 'mic detected');
+          el('micStart').disabled = false;
+        }
+      }
+      requestAnimationFrame(loop);
+    };
+    loop();
   }
 
   function meter() {
@@ -2638,17 +2662,22 @@ const MicCheck = (function () {
         listening = false; return;
       }
       UI.offline(false);
-      const heard = (res.alternatives[0] && res.alternatives[0].transcript || '').toLowerCase();
-      const ok = /read(y|ies)?| redi|steady|ready/.test(heard) ||
-                 Scorer.sim(Scorer.normalize(heard,'en'), 'ready') >= 0.6;
-      if (ok) {
-        setLine('mic-ready', 'ok', `heard "${heard.trim() || 'ready'}"`);
+      const heard = (res.alternatives[0] && res.alternatives[0].transcript || '').trim().toLowerCase();
+      // Lenient: the only goal is "does the mic capture speech". Accept a
+      // "ready"-ish word OR simply ANY recognised words at all.
+      const readyish =
+        /read|redi|steady|rdy|already|ren?dy|rready/.test(heard) ||
+        Scorer.sim(Scorer.normalize(heard, 'en'), 'ready') >= 0.45;
+      const anySpeech = heard.length > 0;
+      if (readyish || anySpeech) {
+        heardOk = true;
+        setLine('mic-ready', 'ok', heard ? `heard "${heard}"` : 'ok');
         el('micStart').disabled = false;
         Audio2.SFX.pass();
         listening = false;
       } else {
-        el('micInterim').textContent = heard ? `heard: ${heard}` : 'Didn\'t catch that — say "ready"';
-        setTimeout(attempt, 300); // keep listening
+        el('micInterim').textContent = 'Listening… say "ready" (or just say anything)';
+        if (active) setTimeout(attempt, 250); // keep listening
       }
     };
     attempt();

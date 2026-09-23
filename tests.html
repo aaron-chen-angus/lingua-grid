@@ -182,6 +182,9 @@ function run() {
   // 11. Difficulty-level selection logic (mirror of index.html Eligibility)
   runLevelTests();
 
+  // 12. Mic-check "ready" acceptance (mirror of index.html readyTest predicate)
+  runReadyTests();
+
   const s = document.getElementById('summary');
   s.className = 'summary' + (failN ? ' bad' : '');
   s.textContent = failN ? (`${failN} FAILED, ${passN} passed`) : (`ALL ${passN} TESTS PASSED`);
@@ -244,6 +247,22 @@ function runLevelTests() {
       ['easy','medium','intermediate'].includes(p.level || 'medium'));
     log(ok, 'inlined PHRASES bank shape valid');
   }
+}
+
+/* ---- Mic-check "ready" acceptance (verbatim mirror of index.html readyTest) ---- */
+function readyAccepts(heardRaw) {
+  const heard = String(heardRaw).trim().toLowerCase();
+  const readyish =
+    /read|redi|steady|rdy|already|ren?dy|rready/.test(heard) ||
+    Scorer.sim(Scorer.normalize(heard, 'en'), 'ready') >= 0.45;
+  const anySpeech = heard.length > 0;
+  return readyish || anySpeech;
+}
+function runReadyTests() {
+  ['ready','Ready','REDDY','are you ready','red','steady','ok go','hello','rdy','already','anything at all']
+    .forEach(w => log(readyAccepts(w) === true, 'ready-check accepts "' + w + '"'));
+  log(readyAccepts('') === false, 'ready-check rejects empty (no speech)');
+  log(readyAccepts('   ') === false, 'ready-check rejects whitespace only');
 }
 
 // pinyin-pro may load async; give it a tick.
