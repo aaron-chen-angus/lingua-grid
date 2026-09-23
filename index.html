@@ -786,7 +786,7 @@ const PHRASES = {
     { "id": "en-i2", "lang": "en", "level": "intermediate", "text": "I would like a cup of coffee, please.", "romanization": "", "ipa": "/a\u026A w\u028Ad la\u026Ak \u0259 k\u028Cp \u0259v \u02C8k\u0252fi pli\u02D0z/", "accept": [], "verify": true },
     { "id": "zh-i1", "lang": "zh", "level": "intermediate", "text": "\u8BF7\u95EE\u6D17\u624B\u95F4\u5728\u54EA\u91CC", "romanization": "q\u01D0ngw\u00E8n x\u01D0sh\u01D2uji\u0101n z\u00E0i n\u01D0li", "ipa": "/t\u0255\u02B0i\u014B w\u0259n \u0255i \u0282o\u028A t\u0255j\u025Bn tsai na li/", "accept": [], "verify": true },
     { "id": "zh-i2", "lang": "zh", "level": "intermediate", "text": "\u6211\u60F3\u4E70\u4E00\u676F\u5496\u5561", "romanization": "w\u01D2 xi\u01CEng m\u01CEi y\u00E0 b\u0113i k\u0101f\u0113i", "ipa": "/wo \u0255j\u0251\u014B mai i pei k\u02B0a fei/", "accept": [], "verify": true },
-    { "id": "ta-i1", "lang": "ta", "level": "intermediate", "text": "\u0BA8\u0BC0\u0B99\u0BCD\u0B95\u0BB3\u0BCD \u0B8E\u0BAA\u0BCD\u0BAA\u0B9F\u0BBF \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95\u0BBF\u0BB1\u0BC0\u0BB0\u0BCD\u0B95\u0BB3\u0BCD", "romanization": "n\u012B\u1E45ka\u1E37 eppa\u1E6Di irukk\u012Br\u012Brka\u1E37", "ipa": "/ni\u02D0\u014Bka\u026F eppa\u027Ai iru\u027ki\u02D0\u027Ki\u02D0rka\u026F/", "accept": [], "verify": true },
+    { "id": "ta-i1", "lang": "ta", "level": "intermediate", "text": "\u0BA8\u0BC0\u0B99\u0BCD\u0B95\u0BB3\u0BCD \u0B8E\u0BAA\u0BCD\u0BAA\u0B9F\u0BBF \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95\u0BBF\u0BB1\u0BC0\u0BB0\u0BCD\u0B95\u0BB3\u0BCD", "romanization": "n\u012B\u1E45ka\u1E37 eppa\u1E6Di irukk\u012Br\u012Brka\u1E37", "ipa": "/ni\u02D0\u014Bka\u026F eppa\u027Ai irukki\u027Ei\u02D0rka\u026F/", "accept": [], "verify": true },
     { "id": "hi-i1", "lang": "hi", "level": "intermediate", "text": "\u0915\u094D\u092F\u093E \u0906\u092A \u092E\u0947\u0930\u0940 \u092E\u0926\u0926 \u0915\u0930 \u0938\u0915\u0924\u0947 \u0939\u0948\u0902", "romanization": "ky\u0101 \u0101p mer\u012B madad kar sakte hai\u1E41", "ipa": "/kja\u02D0 a\u02D0p me\u02D0ri\u02D0 m\u0259d\u0259d k\u0259r s\u0259kte\u02D0 h\u025B\u0303/", "accept": [], "verify": true },
     { "id": "ms-i1", "lang": "ms", "level": "intermediate", "text": "Boleh saya minta bantuan anda?", "romanization": "", "ipa": "/bole\u0068 saja minta bantuan anda/", "accept": [], "verify": true },
     { "id": "id-i1", "lang": "id", "level": "intermediate", "text": "Bisakah Anda membantu saya?", "romanization": "", "ipa": "/bisakah anda m\u0259mbantu saja/", "accept": [], "verify": true },
@@ -2410,8 +2410,8 @@ function bootSet(id, cls, sub) {
 }
 
 async function runBoot() {
+ try {
   UI.show('boot');
-  const li = {};
   bootItem('sr', 'Speech recognition support');
   bootItem('https', 'Secure context (HTTPS / localhost)');
   bootItem('voices', 'Loading speech voices');
@@ -2440,26 +2440,48 @@ async function runBoot() {
 
   // 3. Voices (R3.3, design §5)
   bootSet('voices', 'working', '…');
-  await Audio2.voicesReady();
-  Audio2.refreshVoices();
-  bootSet('voices', 'ok', 'loaded');
-
-  // 4. Build pool with backup fill (R3.2–3.4)
-  bootSet('pool', 'working', '…');
-  POOL_RESULT = await Eligibility.buildPool();
-  const names = POOL_RESULT.langs.map(c => (LANGS[c] ? LANGS[c].name : c));
-  bootSet('pool', 'ok', `${POOL_RESULT.langs.length} langs`);
-  if (POOL_RESULT.substituted.length) {
-    UI.toast('Backup languages used: ' + POOL_RESULT.substituted.map(c => LANGS[c].name).join(', '));
+  try {
+    await Audio2.voicesReady();
+    Audio2.refreshVoices();
+    bootSet('voices', 'ok', 'loaded');
+  } catch (e) {
+    console.warn('[LINGUA//GRID] voices load issue', e);
+    bootSet('voices', 'working', 'skipped');
   }
-  console.log('[LINGUA//GRID] pool:', names.join(' → '),
-              'substituted:', POOL_RESULT.substituted, 'eligible:', POOL_RESULT.eligibleCount);
 
+  // 4. Build pool with backup fill (R3.2–3.4). Never let this hard-stall boot.
+  bootSet('pool', 'working', '…');
+  try {
+    POOL_RESULT = await Eligibility.buildPool(CONFIG.defaultLevel);
+    const names = POOL_RESULT.langs.map(c => (LANGS[c] ? LANGS[c].name : c));
+    bootSet('pool', 'ok', `${POOL_RESULT.langs.length} langs`);
+    if (POOL_RESULT.substituted.length) {
+      UI.toast('Backup languages used: ' + POOL_RESULT.substituted.map(c => LANGS[c].name).join(', '));
+    }
+    console.log('[LINGUA//GRID] pool:', names.join(' → '),
+                'substituted:', POOL_RESULT.substituted, 'eligible:', POOL_RESULT.eligibleCount);
+  } catch (e) {
+    console.error('[LINGUA//GRID] pool build failed, using fallback', e);
+    bootSet('pool', 'working', 'fallback');
+    // Minimal safe pool so the game is still playable; will be rebuilt at Start.
+    POOL_RESULT = { langs: [CONFIG.firstLanguage], substituted: [], eligibleCount: 0, level: CONFIG.defaultLevel };
+  }
+
+  // Always allow the player to continue.
   el('bootContinue').disabled = false;
   el('bootContinue').onclick = () => { Audio2.unlock(); UI.show('register'); };
 
   // start the highway behind everything
-  Renderer.start();
+  try { Renderer.start(); } catch (e) { console.warn('renderer start', e); }
+ } catch (e) {
+   // Last-resort guard: never leave the player stuck on the boot screen.
+   console.error('[LINGUA//GRID] boot error', e);
+   try {
+     el('bootContinue').disabled = false;
+     el('bootContinue').onclick = () => { try { Audio2.unlock(); } catch(_){} UI.show('register'); };
+     UI.toast('Boot warning: ' + (e && e.message ? e.message : e));
+   } catch (_) {}
+ }
 }
 
 /* ---- Registration (R1, R14) ---- */
@@ -2667,17 +2689,29 @@ function wireResults() {
 }
 
 /* ---- init ---- */
-window.addEventListener('DOMContentLoaded', () => {
-  Admin.wire();
-  wireRegister();
-  MicCheck.wire();
-  Game.wire();
-  wireResults();
-  Store.flushWebhook();           // retry any queued runs (R11.3)
-  Renderer.resize();
-  if (!navigator.onLine) UI.offline(true);
-  runBoot();
-});
+function initApp() {
+  try {
+    Admin.wire();
+    wireRegister();
+    MicCheck.wire();
+    Game.wire();
+    wireResults();
+    Store.flushWebhook();           // retry any queued runs (R11.3)
+    Renderer.resize();
+    if (!navigator.onLine) UI.offline(true);
+  } catch (e) {
+    console.error('[LINGUA//GRID] init error', e);
+  }
+  runBoot();                        // runBoot has its own try/catch
+}
+
+// Run now if the DOM is already parsed (script is at end of body, so
+// DOMContentLoaded may have already fired); otherwise wait for it.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp, { once: true });
+} else {
+  initApp();
+}
 </script>
 </body>
 </html>
