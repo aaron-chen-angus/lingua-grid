@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LINGUA//GRID — Scorer tests</title>
+<style>
+  body { background:#02040A; color:#E6FBFF; font-family: 'Courier New', monospace; padding: 24px; line-height:1.5;}
+  h1 { color:#00E5FF; letter-spacing:2px; }
+  .case { padding:6px 10px; border-left:3px solid #333; margin:4px 0; }
+  .pass { border-color:#00E5FF; }
+  .fail { border-color:#FF7A00; color:#FFB347; }
+  .summary { font-size:20px; margin:16px 0; padding:10px; border:1px solid #00E5FF; display:inline-block;}
+  .summary.bad { border-color:#FF7A00; color:#FFB347; }
+  code { color:#00E5FF; }
+  small { color:#7fa6b8; }
+</style>
+</head>
+<body>
+<h1>LINGUA//GRID — Scorer tests</h1>
+<p><small>Loads the same pinned pinyin-pro CDN as index.html, plus a verbatim copy of the Scorer module
+(per design §11, tests may load a copy of the Scorer). Asserts the design §11 cases.</small></p>
+<div id="out"></div>
+<div id="summary"></div>
+
+<!-- Same pinned external as the game -->
+<script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.26.0/dist/index.js"></script>
+
+<script>
+/* --- CONFIG (copy of the scoring-relevant tunables from index.html) --- */
+const CONFIG = {
+  threshold: { default: 0.65, th: 0.55, my: 0.55, ta: 0.55 },
+  perfectAt: 0.90
+};
+
+/* ================================================================= *
+ *  SCORER — verbatim copy of the module in index.html               *
+ * ================================================================= */
+const Scorer = (function () {
+  const hasPinyin = () =>
+    typeof globalThis.pinyinPro !== 'undefined' && typeof globalThis.pinyinPro.pinyin === 'function';
+
+  let _seg = null;
+  function graphemes(s) {
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      if (!_seg) _seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+      return [..._seg.segment(s)].map(x => x.segment);
+    }
+    return [...s];
+  }
+  function stripDiacritics(s) {
+    return s.normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
+  }
+  function toPinyin(t) {
+    if (!hasPinyin()) return t;
+    try {
+      const arr = globalThis.pinyinPro.pinyin(t, { toneType: 'none', type: 'array' });
+      return Array.isArray(arr) ? arr.join(' ') : String(arr);
+    } catch (e) { return t; }
+  }
+  function normalize(text, lang) {
+    if (text == null) return '';
+    let t = String(text).normalize('NFC').toLowerCase();
+    if (lang === 'ar') t = t.replace(/[\u064B-\u065F\u0670\u0640]/g, '');
+    if (lang === 'he') t = t.replace(/[\u0591-\u05C7]/g, '');
+    if (['fr','de','es','ms','id','en','it','pt','fil'].includes(lang)) t = stripDiacritics(t);
+    t = t.replace(/[\p{P}\p{S}]/gu, ' ').replace(/\s+/g, ' ').trim();
+    if (['zh','th','my','ja'].includes(lang)) t = t.replace(/\s+/g, '');
+    if (lang === 'zh') t = toPinyin(t).replace(/\s+/g, ' ').trim();
+    return t;
+  }
+  function levenshtein(a, b) {
+    const m = a.length, n = b.length;
+    if (m === 0) return n; if (n === 0) return m;
+    let prev = new Array(n + 1), cur = new Array(n + 1);
+    for (let j = 0; j <= n; j++) prev[j] = j;
+    for (let i = 1; i <= m; i++) {
+      cur[0] = i;
+      for (let j = 1; j <= n; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+      }
+      [prev, cur] = [cur, prev];
+    }
+    return prev[n];
+  }
+  function sim(a, b) {
+    const ga = graphemes(a), gb = graphemes(b);
+    return 1 - levenshtein(ga, gb) / Math.max(ga.length, gb.length, 1);
+  }
+  function windowSim(heard, target) {
+    const hw = heard.split(' ').filter(Boolean);
+    const tw = target.split(' ').filter(Boolean);
+    if (hw.length <= 1 || tw.length <= 1 || hw.length <= tw.length) return sim(heard, target);
+    let best = sim(heard, target);
+    const lo = Math.max(1, tw.length - 2), hi = tw.length + 2;
+    for (let win = lo; win <= hi; win++) {
+      for (let i = 0; i + win <= hw.length; i++) {
+        const s = sim(hw.slice(i, i + win).join(' '), target);
+        if (s > best) best = s;
+      }
+    }
+    return best;
+  }
+  function score(results, phrase, lang) {
+    const alts = (results || []).slice(0, 5).map(r => (typeof r === 'string' ? r : r.transcript) || '');
+    const targets = [phrase.text, ...(phrase.accept || [])];
+    let best = 0;
+    for (const h of alts) {
+      const nh = normalize(h, lang); if (!nh) continue;
+      for (const t of targets) {
+        const nt = normalize(t, lang); if (!nt) continue;
+        const s = windowSim(nh, nt);
+        if (s > best) best = s;
+      }
+    }
+    return best;
+  }
+  function threshold(lang){ return (CONFIG.threshold[lang] != null) ? CONFIG.threshold[lang] : CONFIG.threshold.default; }
+  function passes(v, lang){ return v >= threshold(lang); }
+  function isPerfect(v){ return v >= CONFIG.perfectAt; }
+  return { normalize, graphemes, levenshtein, sim, windowSim, score, threshold, passes, isPerfect };
+})();
+
+/* ------------------------------- test harness ------------------------------- */
+const out = document.getElementById('out');
+let passN = 0, failN = 0;
+function log(ok, label, detail) {
+  passN += ok ? 1 : 0; failN += ok ? 0 : 1;
+  const d = document.createElement('div');
+  d.className = 'case ' + (ok ? 'pass' : 'fail');
+  d.innerHTML = (ok ? '&#10003; ' : '&#10007; ') + label + (detail ? ' &mdash; <small>' + detail + '</small>' : '');
+  out.appendChild(d);
+}
+function approxAtLeast(label, val, min) { log(val >= min, label, 'score=' + val.toFixed(3) + ' (need &ge;' + min + ')'); }
+function approxAtMost(label, val, max)  { log(val <= max, label, 'score=' + val.toFixed(3) + ' (need &le;' + max + ')'); }
+function eqNum(label, val, want)        { log(Math.abs(val - want) < 1e-9, label, 'got=' + val + ' want=' + want); }
+
+function run() {
+  const P = (text, accept=[]) => ({ text, accept });
+  const S = (h, phrase, lang) => Scorer.score(Array.isArray(h) ? h : [h], phrase, lang);
+
+  // 1. exact match = 1
+  eqNum('exact English match = 1', S('nice to meet you', P('Nice to meet you'), 'en'), 1);
+  eqNum('exact French (diacritics stripped) = 1', S('enchante', P('Enchanté'), 'fr'), 1);
+
+  // 2. punctuation/case ignored
+  approxAtLeast('punctuation + case ignored', S('GOOD MORNING, HOW ARE YOU!!!', P('Good morning, how are you?'), 'en'), 0.99);
+
+  // 3. Arabic with/without tashkeel ≈ 1
+  approxAtLeast('Arabic tashkeel ignored', S('مرحباً', P('مرحبا'), 'ar'), 0.99);
+  approxAtLeast('Arabic shukran variant', S('شكراً جزيلاً', P('شكرا جزيلا', ['شكراً جزيلاً']), 'ar'), 0.99);
+
+  // 4. Hebrew niqqud ignored
+  approxAtLeast('Hebrew niqqud ignored', S('שָׁלוֹם', P('שלום'), 'he'), 0.99);
+
+  // 5. Mandarin homophones (他/她) pass — pinyin identical (tā)
+  const zhHomo = S('他好吗', P('你好吗'), 'zh'); // 他 vs 你 differ; check 他/她 homophone instead:
+  approxAtLeast('Mandarin homophone 她好吗 ~ 他好吗', S('她好吗', P('他好吗'), 'zh'), 0.99);
+  approxAtLeast('Mandarin toneless pinyin match 谢谢你', S('谢谢你', P('谢谢你'), 'zh'), 0.99);
+
+  // 6. extra filler words still pass
+  approxAtLeast('filler words tolerated (fr)', S('euh bonjour comment ca va alors', P('Bonjour, comment ça va ?'), 'fr'), 0.75);
+  approxAtLeast('filler words tolerated (en)', S('um good morning how are you', P('Good morning, how are you?'), 'en'), 0.75);
+
+  // 7. wrong phrase < 0.4
+  approxAtMost('wrong phrase scores low (en)', S('completely different sentence', P('Nice to meet you'), 'en'), 0.4);
+  approxAtMost('wrong phrase scores low (zh)', S('再见', P('你好吗'), 'zh'), 0.4);
+
+  // 8. threshold table sanity
+  eqNum('default threshold', Scorer.threshold('fr'), 0.65);
+  eqNum('thai threshold lowered', Scorer.threshold('th'), 0.55);
+  eqNum('tamil threshold lowered', Scorer.threshold('ta'), 0.55);
+
+  // 9. multiple alternatives — best wins
+  approxAtLeast('best of 5 alternatives', S(['wrong', 'also wrong', 'thank you very much'], P('Thank you very much'), 'en'), 0.99);
+
+  // 10. perfect detection
+  log(Scorer.isPerfect(0.95) === true, 'isPerfect(0.95) true');
+  log(Scorer.isPerfect(0.80) === false, 'isPerfect(0.80) false');
+
+  const s = document.getElementById('summary');
+  s.className = 'summary' + (failN ? ' bad' : '');
+  s.textContent = failN ? (`${failN} FAILED, ${passN} passed`) : (`ALL ${passN} TESTS PASSED`);
+}
+
+// pinyin-pro may load async; give it a tick.
+function boot() {
+  if (typeof globalThis.pinyinPro === 'undefined') { return setTimeout(boot, 50); }
+  run();
+}
+boot();
+</script>
+</body>
+</html>

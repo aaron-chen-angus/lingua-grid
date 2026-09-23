@@ -1,0 +1,2458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="dark" />
+<title>LINGUA//GRID</title>
+
+<!-- Allowed CDN externals (pinned). Google Fonts: Orbitron + Noto families. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans:ital,wght@0,400;0,600;1,400&family=Noto+Sans+SC:wght@400;700&family=Noto+Sans+Tamil:wght@400;700&family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Sans+Thai:wght@400;700&family=Noto+Sans+Myanmar:wght@400;700&family=Noto+Sans+Hebrew:wght@400;700&family=Noto+Naskh+Arabic:wght@400;700&family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+KR:wght@400;700&display=swap"
+  rel="stylesheet"
+/>
+
+<style>
+/* ============================================================= *
+ *  LINGUA//GRID — TRON multilingual pronunciation runner        *
+ *  Palette (design §9)                                           *
+ * ============================================================= */
+:root {
+  --bg: #02040A;
+  --bg-2: #050a16;
+  --grid-cyan: #00E5FF;
+  --deep-blue: #0066FF;
+  --orange: #FF7A00;
+  --hot-orange: #FFB347;
+  --text: #E6FBFF;
+  --text-dim: #7fa6b8;
+  --danger: #ff3860;
+  --ok: #00E5FF;
+  --panel: rgba(6, 18, 30, 0.72);
+  --panel-line: rgba(0, 229, 255, 0.35);
+  --ui: 'Orbitron', system-ui, sans-serif;
+  --native: 'Noto Sans', system-ui, sans-serif;
+  --glow-cyan: 0 0 6px rgba(0,229,255,.9), 0 0 18px rgba(0,229,255,.5);
+  --glow-orange: 0 0 6px rgba(255,122,0,.9), 0 0 18px rgba(255,122,0,.55);
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: radial-gradient(ellipse at 50% 120%, #071427 0%, var(--bg) 60%);
+  color: var(--text);
+  font-family: var(--ui);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app { position: fixed; inset: 0; }
+
+/* Canvas highway lives behind DOM overlays */
+#highway {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  display: block;
+  z-index: 0;
+}
+
+/* CRT scanline + vignette overlay */
+#crt {
+  pointer-events: none;
+  position: absolute; inset: 0;
+  z-index: 60;
+  mix-blend-mode: overlay;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.05) 0px,
+      rgba(255,255,255,0.05) 1px,
+      rgba(0,0,0,0) 2px,
+      rgba(0,0,0,0) 3px
+    );
+  opacity: .5;
+}
+#vignette {
+  pointer-events: none;
+  position: absolute; inset: 0;
+  z-index: 59;
+  background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,.65) 100%);
+}
+
+/* ---------- Screen containers ---------- */
+.screen {
+  position: absolute; inset: 0;
+  z-index: 40;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: screenIn .35s ease both;
+}
+.screen.active { display: flex; }
+@keyframes screenIn { from { opacity: 0; transform: translateY(8px);} to {opacity:1; transform:none;} }
+
+/* HUD is always-on during play, separate from screen stack */
+#hud {
+  position: absolute; inset: 0;
+  z-index: 30;
+  display: none;
+  pointer-events: none;
+}
+#hud.active { display: block; }
+
+/* ---------- Panels ---------- */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-radius: 14px;
+  padding: 28px 32px;
+  max-width: 640px;
+  width: 100%;
+  backdrop-filter: blur(6px);
+  box-shadow: var(--glow-cyan), inset 0 0 40px rgba(0,229,255,.06);
+  position: relative;
+}
+.panel::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: 14px;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--grid-cyan), transparent 40%, transparent 60%, var(--deep-blue));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: .6; pointer-events: none;
+}
+
+h1.logo {
+  font-weight: 900;
+  font-size: clamp(28px, 5vw, 54px);
+  letter-spacing: 4px;
+  margin: 0 0 4px;
+  text-shadow: var(--glow-cyan);
+}
+h1.logo .slash { color: var(--orange); text-shadow: var(--glow-orange); }
+.tagline { color: var(--text-dim); letter-spacing: 3px; font-size: 12px; margin-bottom: 20px; text-transform: uppercase;}
+
+h2.title {
+  font-weight: 700; letter-spacing: 2px; margin: 0 0 16px;
+  text-shadow: var(--glow-cyan); font-size: 22px;
+}
+
+label { display: block; font-size: 12px; letter-spacing: 1.5px; color: var(--text-dim); margin: 14px 0 6px; text-transform: uppercase;}
+input[type="text"], input[type="number"], select {
+  width: 100%;
+  background: rgba(0,0,0,.4);
+  border: 1px solid var(--panel-line);
+  color: var(--text);
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-family: var(--ui);
+  font-size: 15px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+input:focus, select:focus { border-color: var(--grid-cyan); box-shadow: var(--glow-cyan); }
+.field.invalid input, .field.invalid select {
+  border-color: var(--orange);
+  box-shadow: var(--glow-orange);
+}
+.field .err { color: var(--hot-orange); font-size: 11px; margin-top: 4px; min-height: 14px; letter-spacing: .5px; display:none;}
+.field.invalid .err { display: block; }
+
+.row { display: flex; gap: 16px; flex-wrap: wrap; }
+.row > .field { flex: 1 1 140px; }
+
+.consent {
+  display: flex; gap: 10px; align-items: flex-start;
+  margin-top: 18px; font-size: 12px; color: var(--text-dim); line-height: 1.5;
+}
+.consent input { width: 18px; height: 18px; accent-color: var(--grid-cyan); margin-top: 2px; flex: 0 0 auto;}
+.notice {
+  margin-top: 14px; font-size: 11px; line-height: 1.6;
+  color: var(--text-dim);
+  border-left: 2px solid var(--orange);
+  padding: 8px 12px; background: rgba(255,122,0,.05);
+  border-radius: 0 6px 6px 0;
+}
+
+/* ---------- Buttons ---------- */
+button {
+  font-family: var(--ui);
+  cursor: pointer;
+  border: 1px solid var(--grid-cyan);
+  background: linear-gradient(180deg, rgba(0,229,255,.18), rgba(0,102,255,.1));
+  color: var(--text);
+  padding: 12px 22px;
+  font-size: 14px; font-weight: 700; letter-spacing: 2px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  transition: transform .1s, box-shadow .15s, background .15s;
+  box-shadow: 0 0 0 rgba(0,229,255,0);
+}
+button:hover:not(:disabled) { box-shadow: var(--glow-cyan); transform: translateY(-1px); }
+button:active:not(:disabled) { transform: translateY(0); }
+button:disabled { opacity: .4; cursor: not-allowed; }
+button.primary { border-color: var(--grid-cyan); background: linear-gradient(180deg, rgba(0,229,255,.32), rgba(0,102,255,.18)); }
+button.warn { border-color: var(--orange); background: linear-gradient(180deg, rgba(255,122,0,.28), rgba(255,122,0,.12)); }
+button.warn:hover:not(:disabled) { box-shadow: var(--glow-orange); }
+button.ghost { border-color: var(--panel-line); background: rgba(0,0,0,.3); }
+.btn-row { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+.btn-row.center { justify-content: center; }
+
+/* ---------- Boot / status list ---------- */
+.checklist { list-style: none; padding: 0; margin: 16px 0 0; font-size: 13px; letter-spacing: 1px;}
+.checklist li { padding: 8px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px dashed rgba(0,229,255,.12); }
+.checklist .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); flex: 0 0 auto; box-shadow: 0 0 6px currentColor;}
+.checklist li.ok .dot { background: var(--grid-cyan); color: var(--grid-cyan); }
+.checklist li.bad .dot { background: var(--orange); color: var(--orange); }
+.checklist li.working .dot { background: var(--hot-orange); color: var(--hot-orange); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+.checklist .sub { color: var(--text-dim); font-size: 11px; margin-left: auto; }
+
+/* ---------- Mic level meter ---------- */
+.meter { height: 16px; border: 1px solid var(--panel-line); border-radius: 8px; overflow: hidden; background: rgba(0,0,0,.4); margin-top: 10px;}
+.meter > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--grid-cyan), var(--hot-orange)); transition: width .05s linear;}
+.interim { min-height: 22px; margin-top: 12px; color: var(--grid-cyan); font-family: var(--native); font-size: 16px; letter-spacing: .5px; }
+
+/* ---------- HUD elements (task 11 styles) ---------- */
+.hud-tl { position: absolute; top: 18px; left: 18px; }
+.hud-tc { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); text-align: center; }
+.hud-tr { position: absolute; top: 18px; right: 18px; text-align: right; }
+.hud-stage { font-size: 26px; font-weight: 900; letter-spacing: 2px; text-shadow: var(--glow-cyan); }
+.chips { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; max-width: 280px;}
+.chip { font-size: 10px; padding: 3px 7px; border: 1px solid var(--panel-line); border-radius: 6px; letter-spacing: 1px; color: var(--text-dim); background: rgba(0,0,0,.35);}
+.chip.done { border-color: var(--grid-cyan); color: var(--grid-cyan); box-shadow: var(--glow-cyan); }
+.chip.current { border-color: var(--orange); color: var(--hot-orange); box-shadow: var(--glow-orange); }
+.timer { font-size: 40px; font-weight: 900; letter-spacing: 3px; text-shadow: var(--glow-cyan); font-variant-numeric: tabular-nums;}
+.timer small { font-size: 20px; opacity: .7;}
+.penalty { color: var(--hot-orange); font-size: 18px; font-weight: 700; text-shadow: var(--glow-orange); min-height: 22px;}
+.combo { font-size: 24px; font-weight: 900; color: var(--hot-orange); text-shadow: var(--glow-orange); min-height: 30px;}
+
+/* ---------- Barrier card (DOM overlay above canvas barrier) ---------- */
+#barrierCard {
+  position: absolute; left: 50%; top: 46%;
+  transform: translate(-50%,-50%);
+  z-index: 32;
+  width: min(560px, 86vw);
+  pointer-events: none;
+  display: none;
+}
+#barrierCard.show { display: block; }
+.bcard {
+  background: linear-gradient(180deg, rgba(10,22,36,.86), rgba(6,14,26,.9));
+  border: 1px solid var(--orange);
+  border-radius: 16px;
+  padding: 20px 26px 24px;
+  box-shadow: var(--glow-orange), inset 0 0 40px rgba(255,122,0,.08);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  animation: cardScan .5s ease both;
+}
+@keyframes cardScan {
+  from { clip-path: inset(0 0 100% 0); opacity: 0; }
+  to   { clip-path: inset(0 0 0 0); opacity: 1; }
+}
+.bcard.pass { border-color: var(--grid-cyan); box-shadow: var(--glow-cyan), inset 0 0 40px rgba(0,229,255,.1); }
+.bcard.fail { animation: shake .4s; }
+@keyframes shake { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-8px);} 40%{transform:translateX(8px);} 60%{transform:translateX(-5px);} 80%{transform:translateX(5px);} }
+
+.bcard .head { display: flex; align-items: center; gap: 14px; justify-content: center; margin-bottom: 12px;}
+.bcard .flag { width: 52px; height: 39px; border-radius: 5px; overflow: hidden; box-shadow: var(--glow-cyan); border: 1px solid rgba(0,229,255,.6); flex: 0 0 auto;}
+.bcard .flag svg { display: block; width: 100%; height: 100%; }
+.bcard .langname { font-size: 22px; font-weight: 700; letter-spacing: 2px; text-shadow: var(--glow-cyan); }
+.bcard .native {
+  font-family: var(--native);
+  font-size: clamp(30px, 6vw, 46px);
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 6px 0;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(0,229,255,.5);
+  word-break: break-word;
+}
+.bcard .native[dir="rtl"] { direction: rtl; }
+.bcard .roman { font-family: var(--native); font-size: 18px; color: var(--hot-orange); letter-spacing: 1px; }
+.bcard .ipa { font-family: 'Noto Sans', serif; font-style: italic; color: var(--grid-cyan); font-size: 16px; margin-top: 4px;}
+.bcard .result { margin-top: 12px; min-height: 26px; font-size: 15px; letter-spacing: 1px;}
+.bcard .heard { font-family: var(--native); color: var(--text-dim); font-size: 14px; margin-top: 4px; min-height: 18px;}
+.sync-pct { font-weight: 900; font-size: 20px; }
+.sync-pct.pass { color: var(--grid-cyan); text-shadow: var(--glow-cyan); }
+.sync-pct.fail { color: var(--hot-orange); text-shadow: var(--glow-orange); }
+
+/* ---------- Action dock (SPEAK / HINT / SKIP + SYNC ring) ---------- */
+#dock {
+  position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+  z-index: 33; display: none; align-items: center; gap: 20px;
+  pointer-events: auto;
+}
+#dock.show { display: flex; }
+.speak-wrap { position: relative; width: 132px; height: 132px; }
+.speak-wrap svg.ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none;}
+.speak-wrap .ring .track { fill: none; stroke: rgba(0,229,255,.15); stroke-width: 6; }
+.speak-wrap .ring .val { fill: none; stroke: var(--grid-cyan); stroke-width: 6; stroke-linecap: round; filter: drop-shadow(0 0 6px var(--grid-cyan)); transition: stroke-dashoffset .08s linear;}
+#speakBtn {
+  position: absolute; inset: 14px; border-radius: 50%;
+  border: 2px solid var(--grid-cyan); font-size: 15px;
+  display: flex; align-items: center; justify-content: center; flex-direction: column;
+  background: radial-gradient(circle at 50% 40%, rgba(0,229,255,.25), rgba(0,102,255,.08));
+}
+#speakBtn.listening { border-color: var(--hot-orange); animation: pulse .8s infinite; box-shadow: var(--glow-orange);}
+#speakBtn small { font-size: 9px; opacity: .7; margin-top: 3px; letter-spacing: 1px;}
+.dock-side { display: flex; flex-direction: column; gap: 10px; }
+
+/* ---------- Callouts ---------- */
+#callouts { position: absolute; inset: 0; z-index: 45; pointer-events: none; overflow: hidden;}
+.callout {
+  position: absolute; left: 50%; top: 34%; transform: translateX(-50%);
+  font-weight: 900; letter-spacing: 3px;
+  animation: calloutPop 1.1s ease forwards;
+}
+.callout.perfect { color: var(--grid-cyan); font-size: 64px; text-shadow: var(--glow-cyan); }
+.callout.combo { color: var(--hot-orange); font-size: 48px; text-shadow: var(--glow-orange); top: 24%;}
+.callout.penalty { color: var(--hot-orange); font-size: 40px; text-shadow: var(--glow-orange); top: 40%;}
+.callout.bonus { color: var(--grid-cyan); font-size: 40px; text-shadow: var(--glow-cyan); top: 40%;}
+@keyframes calloutPop {
+  0% { opacity: 0; transform: translateX(-50%) scale(.5); }
+  20% { opacity: 1; transform: translateX(-50%) scale(1.15); }
+  40% { transform: translateX(-50%) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-60px) scale(1); }
+}
+
+/* ---------- Toast + banners ---------- */
+#toast {
+  position: absolute; bottom: 190px; left: 50%; transform: translateX(-50%);
+  z-index: 50; background: rgba(6,18,30,.92); border: 1px solid var(--panel-line);
+  padding: 10px 18px; border-radius: 8px; font-size: 13px; letter-spacing: 1px;
+  box-shadow: var(--glow-cyan); display: none; max-width: 80vw; text-align: center;
+}
+#toast.show { display: block; animation: screenIn .25s ease; }
+#offlineBanner {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 55;
+  background: rgba(255,122,0,.92); color: #10202e; text-align: center;
+  padding: 8px; font-size: 12px; font-weight: 700; letter-spacing: 2px;
+  display: none;
+}
+#offlineBanner.show { display: block; }
+
+/* ---------- Results / leaderboard tables ---------- */
+.wide { max-width: 960px; }
+.stat-row { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin: 12px 0 8px;}
+.stat { text-align: center; min-width: 84px;}
+.stat b { display: block; font-size: 26px; text-shadow: var(--glow-cyan);}
+.stat span { font-size: 10px; letter-spacing: 1.5px; color: var(--text-dim); text-transform: uppercase;}
+.finaltime { font-size: 54px; font-weight: 900; text-shadow: var(--glow-cyan); text-align: center; letter-spacing: 3px; font-variant-numeric: tabular-nums;}
+.tbl-wrap { max-height: 34vh; overflow: auto; margin-top: 14px; border: 1px solid var(--panel-line); border-radius: 8px;}
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th, td { padding: 7px 9px; text-align: left; border-bottom: 1px solid rgba(0,229,255,.12); letter-spacing: .5px;}
+th { position: sticky; top: 0; background: #071427; color: var(--grid-cyan); font-weight: 700; letter-spacing: 1px; z-index: 1;}
+td.native, th.native { font-family: var(--native); }
+tr.me td { background: rgba(0,229,255,.1); color: #fff; }
+tr.skip td { color: var(--hot-orange); }
+.mini-flag { width: 26px; height: 20px; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; border: 1px solid rgba(0,229,255,.5);}
+.mini-flag svg { width: 100%; height: 100%; display: block; }
+.rank-badge { color: var(--hot-orange); font-weight: 900; }
+
+/* ---------- Admin panel ---------- */
+#admin {
+  position: absolute; inset: 0; z-index: 80; display: none;
+  align-items: center; justify-content: center; background: rgba(0,0,0,.7);
+}
+#admin.show { display: flex; }
+
+/* Countdown */
+#countdown { font-size: 160px; font-weight: 900; text-shadow: var(--glow-cyan); animation: cd 1s ease;}
+@keyframes cd { from{transform:scale(2);opacity:0;} to{transform:scale(1);opacity:1;} }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
+
+/* Small screens */
+@media (max-width: 1360px) {
+  .timer { font-size: 32px; }
+  .bcard .native { font-size: clamp(26px, 5vw, 38px); }
+}
+
+.kbd { display:inline-block; border:1px solid var(--panel-line); border-radius:4px; padding:0 6px; font-size:11px; color:var(--text-dim);}
+.hidden { display: none !important; }
+a { color: var(--grid-cyan); }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="highway"></canvas>
+
+  <!-- ===================== SCREENS ===================== -->
+
+  <!-- BOOT -->
+  <section id="screen-boot" class="screen active">
+    <div class="panel">
+      <h1 class="logo">LINGUA<span class="slash">//</span>GRID</h1>
+      <div class="tagline">Neon pronunciation runner // preflight</div>
+      <ul class="checklist" id="bootList"></ul>
+      <div class="btn-row center">
+        <button id="bootContinue" class="primary" disabled>Continue</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- UNSUPPORTED -->
+  <section id="screen-unsupported" class="screen">
+    <div class="panel">
+      <h1 class="logo">LINGUA<span class="slash">//</span>GRID</h1>
+      <h2 class="title">Unsupported browser</h2>
+      <p>This game needs the Web Speech API, available in desktop <b>Google Chrome</b> or <b>Microsoft Edge</b>.</p>
+      <p class="notice">Open this page in Chrome or Edge on a laptop/desktop, served over HTTPS or localhost so the microphone can be used.</p>
+    </div>
+  </section>
+
+  <!-- REGISTER -->
+  <section id="screen-register" class="screen">
+    <div class="panel">
+      <h1 class="logo">LINGUA<span class="slash">//</span>GRID</h1>
+      <div class="tagline">Rider registration</div>
+      <div class="field" id="f-name">
+        <label for="in-name">Name</label>
+        <input type="text" id="in-name" maxlength="40" autocomplete="off" placeholder="1–20 characters" />
+        <div class="err">Enter 1–20 characters.</div>
+      </div>
+      <div class="row">
+        <div class="field" id="f-age">
+          <label for="in-age">Age</label>
+          <input type="number" id="in-age" min="5" max="99" step="1" placeholder="5–99" />
+          <div class="err">Age must be 5–99.</div>
+        </div>
+        <div class="field" id="f-gender">
+          <label for="in-gender">Gender</label>
+          <select id="in-gender">
+            <option value="">Select…</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Prefer not to say">Prefer not to say</option>
+          </select>
+          <div class="err">Please choose one.</div>
+        </div>
+      </div>
+      <div class="notice" id="pdpaNotice">
+        <b>Data use notice (Singapore PDPA).</b>
+        Your speech is processed by your browser's cloud speech service to score pronunciation.
+        No audio recordings are stored. Your name, age, gender and scores are stored locally in this browser
+        and, if a leaderboard webhook is configured, sent there to rank runs.
+      </div>
+      <label class="consent">
+        <input type="checkbox" id="in-consent" />
+        <span>I have read the notice and consent to my details and scores being stored for the leaderboard.</span>
+      </label>
+      <div class="field" id="f-consent"><div class="err">Consent is required to play.</div></div>
+      <div class="btn-row center">
+        <button id="regStart" class="primary">Start</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- MIC CHECK -->
+  <section id="screen-mic" class="screen">
+    <div class="panel">
+      <h1 class="logo">LINGUA<span class="slash">//</span>GRID</h1>
+      <div class="tagline">Microphone sync</div>
+      <p id="micMsg">Allow microphone access, then say <b>"ready"</b> to confirm the mic works.</p>
+      <div class="meter"><i id="micBar"></i></div>
+      <div class="interim" id="micInterim"></div>
+      <ul class="checklist">
+        <li id="mic-perm"><span class="dot"></span> Microphone permission <span class="sub"></span></li>
+        <li id="mic-ready"><span class="dot"></span> Say "ready" <span class="sub"></span></li>
+      </ul>
+      <div class="notice hidden" id="micDenied">
+        Microphone blocked. Click the padlock/mic icon in the address bar, allow the mic for this site, then press Retry.
+      </div>
+      <div class="btn-row center">
+        <button id="micRetry" class="ghost">Retry</button>
+        <button id="micStart" class="primary" disabled>Enter grid</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- COUNTDOWN -->
+  <section id="screen-countdown" class="screen">
+    <div id="countdown">3</div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="screen-results" class="screen">
+    <div class="panel wide">
+      <h2 class="title">Run complete</h2>
+      <div class="finaltime" id="resFinal">00:00.00</div>
+      <div class="stat-row" id="resStats"></div>
+      <div class="tbl-wrap"><table id="resTable"></table></div>
+      <div class="btn-row center">
+        <button id="btnLeaderboard" class="ghost">Leaderboard</button>
+        <button id="btnPlayAgain" class="primary">Play again</button>
+        <button id="btnNewPlayer" class="warn">New player</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- LEADERBOARD -->
+  <section id="screen-leaderboard" class="screen">
+    <div class="panel wide">
+      <h2 class="title">Leaderboard // Top 10</h2>
+      <div class="tbl-wrap"><table id="lbTable"></table></div>
+      <div class="btn-row center">
+        <button id="lbBack" class="ghost">Back to results</button>
+        <button id="lbPlayAgain" class="primary">Play again</button>
+        <button id="lbNewPlayer" class="warn">New player</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== HUD (during play) ===================== -->
+  <div id="hud">
+    <div class="hud-tl">
+      <div class="hud-stage" id="hudStage">01/10</div>
+      <div class="chips" id="hudChips"></div>
+    </div>
+    <div class="hud-tc">
+      <div class="timer" id="hudTimer">00:00<small>.00</small></div>
+    </div>
+    <div class="hud-tr">
+      <div class="penalty" id="hudPenalty"></div>
+      <div class="combo" id="hudCombo"></div>
+    </div>
+
+    <div id="barrierCard"><div class="bcard" id="bcardInner"></div></div>
+
+    <div id="dock">
+      <div class="dock-side">
+        <button id="hintBtn" class="warn">Hint <small>(H · +5s)</small></button>
+      </div>
+      <div class="speak-wrap">
+        <svg class="ring" viewBox="0 0 120 120">
+          <circle class="track" cx="60" cy="60" r="54"></circle>
+          <circle class="val" id="syncRing" cx="60" cy="60" r="54" stroke-dasharray="339.29" stroke-dashoffset="339.29"></circle>
+        </svg>
+        <button id="speakBtn">SPEAK<small>SPACE</small></button>
+      </div>
+      <div class="dock-side">
+        <button id="skipBtn" class="ghost hidden">Skip <small>(+15s)</small></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlays -->
+  <div id="callouts"></div>
+  <div id="toast"></div>
+  <div id="offlineBanner">// OFFLINE — speech recognition needs an internet connection</div>
+
+  <!-- Admin panel -->
+  <div id="admin">
+    <div class="panel">
+      <h2 class="title">Admin // data</h2>
+      <p id="adminSummary" class="tagline"></p>
+      <div class="btn-row">
+        <button id="admCsv" class="ghost">Export CSV</button>
+        <button id="admJson" class="ghost">Export JSON</button>
+        <button id="admFlush" class="ghost">Retry webhook queue</button>
+        <button id="admClear" class="warn">Clear all data</button>
+        <button id="admClose" class="primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="vignette"></div>
+  <div id="crt"></div>
+</div>
+
+<!-- Allowed external: pinyin-pro (pinned) for Mandarin tone-insensitive matching -->
+<script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.26.0/dist/index.js"></script>
+
+<script>
+"use strict";
+/* ================================================================= *
+ *  LINGUA//GRID  —  single-file game logic                           *
+ *  Modules (plain objects): Config, Phrases, Flags, Langs, Scorer,   *
+ *  Store, Audio, Speech, Renderer, UI, Game.                         *
+ * ================================================================= */
+
+/* ------------------------------------------------------------------ *
+ *  CONFIG — every tunable lives here (design §3)                     *
+ * ------------------------------------------------------------------ */
+const CONFIG = {
+  stages: 10,
+  firstLanguage: 'en',
+  pool: ['zh','ta','hi','ms','id','th','my','vi','fr','de','es','he','ar','ru'],
+  backupLanguages: ['ja','ko','it','pt','fil'],
+  threshold: { default: 0.65, th: 0.55, my: 0.55, ta: 0.55 },
+  perfectAt: 0.90,
+  perfectBonusMs: 1000,
+  hintPenaltyMs: 5000,
+  skipPenaltyMs: 15000,
+  skipAfterFails: 3,
+  maxListenMs: 7000,
+  audioPath: 'audio/',
+  useBundledAudio: true,
+  leaderboardWebhook: '',       // set to a webhook URL to POST completed runs
+  storageKey: 'linguagrid.v1',
+  voicesTimeoutMs: 2000,
+  countdownFrom: 3
+};
+
+/* ------------------------------------------------------------------ *
+ *  PHRASES — inlined verbatim from data/phrases.json                 *
+ * ------------------------------------------------------------------ */
+const PHRASES = {
+  "voices": {
+    "en": "en-US-JennyNeural", "zh": "zh-CN-XiaoxiaoNeural", "ta": "ta-IN-PallaviNeural",
+    "hi": "hi-IN-SwaraNeural", "ms": "ms-MY-YasminNeural", "id": "id-ID-GadisNeural",
+    "th": "th-TH-PremwadeeNeural", "my": "my-MM-NilarNeural", "vi": "vi-VN-HoaiMyNeural",
+    "fr": "fr-FR-DeniseNeural", "de": "de-DE-KatjaNeural", "es": "es-ES-ElviraNeural",
+    "he": "he-IL-HilaNeural", "ar": "ar-SA-ZariyahNeural", "ru": "ru-RU-SvetlanaNeural"
+  },
+  "phrases": [
+    { "id": "en-01", "lang": "en", "text": "Good morning, how are you?", "romanization": "", "ipa": "/\u0261\u028Ad \u02C8m\u0254\u02D0n\u026A\u014B ha\u028A \u0251\u02D0 ju\u02D0/", "accept": [] },
+    { "id": "en-02", "lang": "en", "text": "Thank you very much", "romanization": "", "ipa": "/\u02C8\u03B8\u00E6\u014Bk ju\u02D0 \u02C8v\u025Bri m\u028Bt\u0283/", "accept": [] },
+    { "id": "en-03", "lang": "en", "text": "Nice to meet you", "romanization": "", "ipa": "/na\u026As t\u0259 mi\u02D0t ju\u02D0/", "accept": [] },
+    { "id": "zh-01", "lang": "zh", "text": "\u4F60\u597D\u5417", "romanization": "n\u01D0 h\u01CEo ma", "ipa": "/ni\u02E7\u02E5 xa\u028A\u02E8\u02E9\u02E6 ma/", "accept": [] },
+    { "id": "zh-02", "lang": "zh", "text": "\u8C22\u8C22\u4F60", "romanization": "xi\u00E8xie n\u01D0", "ipa": "/\u0255j\u025B\u02E5\u02E9 \u0255j\u025B ni\u02E8\u02E9\u02E6/", "accept": [] },
+    { "id": "zh-03", "lang": "zh", "text": "\u65E9\u4E0A\u597D", "romanization": "z\u01CEoshang h\u01CEo", "ipa": "/tsa\u028A\u02E8\u02E9 \u0282\u0251\u014B xa\u028A\u02E8\u02E9\u02E6/", "accept": [] },
+    { "id": "ta-01", "lang": "ta", "text": "\u0BB5\u0BA3\u0B95\u0BCD\u0B95\u0BAE\u0BCD", "romanization": "va\u1E47akkam", "ipa": "/\u028Ba\u0273akkam/", "accept": [] },
+    { "id": "ta-02", "lang": "ta", "text": "\u0BA8\u0BA9\u0BCD\u0BB1\u0BBF", "romanization": "na\u1E49\u1E5Fi", "ipa": "/n\u032Fanri/", "accept": [] },
+    { "id": "ta-03", "lang": "ta", "text": "\u0B95\u0BBE\u0BB2\u0BC8 \u0BB5\u0BA3\u0B95\u0BCD\u0B95\u0BAE\u0BCD", "romanization": "k\u0101lai va\u1E47akkam", "ipa": "/ka\u02D0lai \u028Ba\u0273akkam/", "accept": [] },
+    { "id": "hi-01", "lang": "hi", "text": "\u0928\u092E\u0938\u094D\u0924\u0947", "romanization": "namaste", "ipa": "/n\u0259m\u0259ste\u02D0/", "accept": [] },
+    { "id": "hi-02", "lang": "hi", "text": "\u0927\u0928\u094D\u092F\u0935\u093E\u0926", "romanization": "dhanyav\u0101d", "ipa": "/d\u032A\u0361\u0292\u0259nj\u0259\u028Ba\u02D0d\u032A/", "accept": [] },
+    { "id": "hi-03", "lang": "hi", "text": "\u0906\u092A \u0915\u0948\u0938\u0947 \u0939\u0948\u0902", "romanization": "\u0101p kaise hai\u1E41", "ipa": "/a\u02D0p k\u025B\u02D0se\u02D0 h\u025B\u0303\u02D0/", "accept": [] },
+    { "id": "ms-01", "lang": "ms", "text": "Selamat pagi", "romanization": "", "ipa": "/s\u0259lamat pa\u0261i/", "accept": [] },
+    { "id": "ms-02", "lang": "ms", "text": "Terima kasih", "romanization": "", "ipa": "/t\u0259rima kasih/", "accept": [] },
+    { "id": "ms-03", "lang": "ms", "text": "Apa khabar", "romanization": "", "ipa": "/apa xabar/", "accept": ["apa kabar"] },
+    { "id": "id-01", "lang": "id", "text": "Selamat siang", "romanization": "", "ipa": "/s\u0259lamat sia\u014B/", "accept": [] },
+    { "id": "id-02", "lang": "id", "text": "Terima kasih banyak", "romanization": "", "ipa": "/t\u0259rima kasih ba\u0272ak/", "accept": [] },
+    { "id": "id-03", "lang": "id", "text": "Sampai jumpa lagi", "romanization": "", "ipa": "/sampai d\u0292umpa la\u0261i/", "accept": [] },
+    { "id": "th-01", "lang": "th", "text": "\u0E2A\u0E27\u0E31\u0E2A\u0E14\u0E35", "romanization": "sawatdi", "ipa": "/s\u00E0.w\u00E0t.di\u02D0/", "accept": ["\u0E2A\u0E27\u0E31\u0E2A\u0E14\u0E35\u0E04\u0E23\u0E31\u0E1A","\u0E2A\u0E27\u0E31\u0E2A\u0E14\u0E35\u0E04\u0E48\u0E30"] },
+    { "id": "th-02", "lang": "th", "text": "\u0E02\u0E2D\u0E1A\u0E04\u0E38\u0E13", "romanization": "khop khun", "ipa": "/k\u02B0\u0254\u0300\u02D0p k\u02B0un/", "accept": ["\u0E02\u0E2D\u0E1A\u0E04\u0E38\u0E13\u0E04\u0E23\u0E31\u0E1A","\u0E02\u0E2D\u0E1A\u0E04\u0E38\u0E13\u0E04\u0E48\u0E30"] },
+    { "id": "th-03", "lang": "th", "text": "\u0E22\u0E34\u0E19\u0E14\u0E35\u0E17\u0E35\u0E48\u0E44\u0E14\u0E49\u0E23\u0E39\u0E49\u0E08\u0E31\u0E01", "romanization": "yin di thi dai ru chak", "ipa": "/jin di\u02D0 t\u02B0i\u02D0 da\u0302j r\u00FA\u02D0 t\u0255\u00E0k/", "accept": [] },
+    { "id": "my-01", "lang": "my", "text": "\u1019\u1004\u103A\u1039\u1002\u101C\u102C\u1015\u102B", "romanization": "mingalaba", "ipa": "/m\u026A\u0300\u0273\u0261\u0259l\u00E0b\u00E0/", "accept": [] },
+    { "id": "my-02", "lang": "my", "text": "\u1000\u103B\u1031\u1038\u1007\u1030\u1038\u1010\u1004\u103A\u1015\u102B\u1010\u101A\u103A", "romanization": "kyei zu tin ba de", "ipa": "/t\u0255\u00E9z\u00FA t\u026A\u0300\u0273 b\u00E0 d\u025B\u0300/", "accept": [] },
+    { "id": "my-03", "lang": "my", "text": "\u1014\u1031\u1000\u1031\u102C\u1004\u103A\u1038\u101C\u102C\u1038", "romanization": "nei kaung la", "ipa": "/n\u00E8 k\u00E1\u028A\u0273 l\u00E0/", "accept": [] },
+    { "id": "vi-01", "lang": "vi", "text": "Xin ch\u00E0o", "romanization": "", "ipa": "/sin\u02E7 t\u0361\u0255a\u02D0w\u02E8\u02E9/", "accept": [] },
+    { "id": "vi-02", "lang": "vi", "text": "C\u1EA3m \u01A1n b\u1EA1n", "romanization": "", "ipa": "/ka\u02D0m\u02E7\u02E9\u02E7 \u0294\u0259\u02D0n\u02E7 \u0253a\u02D0n\u02E7\u02E8\u0294/", "accept": [] },
+    { "id": "vi-03", "lang": "vi", "text": "H\u1EB9n g\u1EB7p l\u1EA1i", "romanization": "", "ipa": "/h\u025Bn\u02E7\u02E8\u0294 \u0263ap\u02E7\u02E8\u0294 la\u02D0j\u02E7\u02E8\u0294/", "accept": [] },
+    { "id": "fr-01", "lang": "fr", "text": "Bonjour, comment \u00E7a va ?", "romanization": "", "ipa": "/b\u0254\u0303\u0292u\u0281 k\u0254m\u0251\u0303 sa va/", "accept": [] },
+    { "id": "fr-02", "lang": "fr", "text": "Merci beaucoup", "romanization": "", "ipa": "/m\u025B\u0281si boku/", "accept": [] },
+    { "id": "fr-03", "lang": "fr", "text": "Enchant\u00E9", "romanization": "", "ipa": "/\u0251\u0303\u0283\u0251\u0303te/", "accept": ["enchant\u00E9e"] },
+    { "id": "de-01", "lang": "de", "text": "Guten Morgen", "romanization": "", "ipa": "/\u02C8\u0261u\u02D0tn\u0329 \u02C8m\u0254\u0281\u0261n\u0329/", "accept": [] },
+    { "id": "de-02", "lang": "de", "text": "Vielen Dank", "romanization": "", "ipa": "/\u02C8fi\u02D0l\u0259n da\u014Bk/", "accept": [] },
+    { "id": "de-03", "lang": "de", "text": "Wie geht es dir?", "romanization": "", "ipa": "/vi\u02D0 \u0261e\u02D0t \u025Bs di\u02D0\u0250\u032F/", "accept": ["wie geht's dir"] },
+    { "id": "es-01", "lang": "es", "text": "Buenos d\u00EDas", "romanization": "", "ipa": "/\u02C8bwenos \u02C8dias/", "accept": [] },
+    { "id": "es-02", "lang": "es", "text": "Muchas gracias", "romanization": "", "ipa": "/\u02C8mut\u0283as \u02C8\u0261\u027Aa\u03B8jas/", "accept": [] },
+    { "id": "es-03", "lang": "es", "text": "\u00BFC\u00F3mo est\u00E1s?", "romanization": "", "ipa": "/\u02C8komo es\u02C8tas/", "accept": [] },
+    { "id": "he-01", "lang": "he", "text": "\u05E9\u05DC\u05D5\u05DD", "romanization": "shalom", "ipa": "/\u0283a\u02C8lom/", "accept": [] },
+    { "id": "he-02", "lang": "he", "text": "\u05EA\u05D5\u05D3\u05D4 \u05E8\u05D1\u05D4", "romanization": "toda raba", "ipa": "/to\u02C8da \u0281a\u02C8ba/", "accept": [] },
+    { "id": "he-03", "lang": "he", "text": "\u05D1\u05D5\u05E7\u05E8 \u05D8\u05D5\u05D1", "romanization": "boker tov", "ipa": "/\u02C8boke\u0281 tov/", "accept": [] },
+    { "id": "ar-01", "lang": "ar", "text": "\u0645\u0631\u062D\u0628\u0627", "romanization": "mar\u1E25aban", "ipa": "/mar\u0127aban/", "accept": ["\u0645\u0631\u062D\u0628\u0627\u064B"] },
+    { "id": "ar-02", "lang": "ar", "text": "\u0634\u0643\u0631\u0627 \u062C\u0632\u064A\u0644\u0627", "romanization": "shukran jaz\u012Blan", "ipa": "/\u0283ukran d\u0292azi\u02D0lan/", "accept": ["\u0634\u0643\u0631\u0627\u064B \u062C\u0632\u064A\u0644\u0627\u064B"] },
+    { "id": "ar-03", "lang": "ar", "text": "\u0635\u0628\u0627\u062D \u0627\u0644\u062E\u064A\u0631", "romanization": "\u1E63ab\u0101\u1E25 al-khayr", "ipa": "/s\u02C8aba\u02D0\u0127 al.xajr/", "accept": [] },
+    { "id": "ru-01", "lang": "ru", "text": "\u0417\u0434\u0440\u0430\u0432\u0441\u0442\u0432\u0443\u0439\u0442\u0435", "romanization": "zdravstvuyte", "ipa": "/\u02C8zdrastv\u028Ajt\u02B2e/", "accept": [] },
+    { "id": "ru-02", "lang": "ru", "text": "\u0421\u043F\u0430\u0441\u0438\u0431\u043E \u0431\u043E\u043B\u044C\u0448\u043E\u0435", "romanization": "spasibo bolshoye", "ipa": "/sp\u0250\u02C8s\u02B2ib\u0259 b\u0250l\u02B2\u02C8\u0282oj\u0259/", "accept": [] },
+    { "id": "ru-03", "lang": "ru", "text": "\u041F\u0440\u0438\u044F\u0442\u043D\u043E \u043F\u043E\u0437\u043D\u0430\u043A\u043E\u043C\u0438\u0442\u044C\u0441\u044F", "romanization": "priyatno poznakomitsya", "ipa": "/pr\u02B2\u026A\u02C8jatn\u0259 p\u0259zn\u0250\u02C8kom\u02B2\u026At\u0361s\u0259/", "accept": [] },
+
+    /* Backup-language phrase banks (design R3.4). IPA broad; romanisation provided. */
+    { "id": "ja-01", "lang": "ja", "text": "\u304A\u306F\u3088\u3046", "romanization": "ohayou", "ipa": "/ohajo\u02D0/", "accept": ["\u304A\u306F\u3088\u3046\u3054\u3056\u3044\u307E\u3059"] },
+    { "id": "ja-02", "lang": "ja", "text": "\u3042\u308A\u304C\u3068\u3046", "romanization": "arigatou", "ipa": "/a\u027Ei\u0261ato\u02D0/", "accept": ["\u3042\u308A\u304C\u3068\u3046\u3054\u3056\u3044\u307E\u3059"] },
+    { "id": "ja-03", "lang": "ja", "text": "\u3053\u3093\u306B\u3061\u306F", "romanization": "konnichiwa", "ipa": "/ko\u0272:it\u0255iwa/", "accept": [] },
+    { "id": "ko-01", "lang": "ko", "text": "\uC548\uB155\uD558\uC138\uC694", "romanization": "annyeonghaseyo", "ipa": "/an\u0272\u028Ao\u014Bhasej\u028F/", "accept": [] },
+    { "id": "ko-02", "lang": "ko", "text": "\uAC10\uC0AC\uD569\uB2C8\uB2E4", "romanization": "gamsahamnida", "ipa": "/kamsaham\u0272ida/", "accept": [] },
+    { "id": "ko-03", "lang": "ko", "text": "\uC548\uB155\uD788 \uAC00\uC138\uC694", "romanization": "annyeonghi gaseyo", "ipa": "/an\u0272\u028Ao\u014Bhi kasej\u028F/", "accept": [] },
+    { "id": "it-01", "lang": "it", "text": "Buongiorno", "romanization": "", "ipa": "/bwon\u02C8d\u0292orno/", "accept": [] },
+    { "id": "it-02", "lang": "it", "text": "Grazie mille", "romanization": "", "ipa": "/\u02C8\u0261rattsje \u02C8mille/", "accept": [] },
+    { "id": "it-03", "lang": "it", "text": "Come stai?", "romanization": "", "ipa": "/\u02C8kome \u02C8stai/", "accept": [] },
+    { "id": "pt-01", "lang": "pt", "text": "Bom dia", "romanization": "", "ipa": "/b\u00F5\u02C8d\u0292i.\u0250/", "accept": [] },
+    { "id": "pt-02", "lang": "pt", "text": "Muito obrigado", "romanization": "", "ipa": "/\u02C8mu\u0129tu ob\u027Ei\u02C8\u0261adu/", "accept": ["muito obrigada"] },
+    { "id": "pt-03", "lang": "pt", "text": "Como vai voc\u00EA?", "romanization": "", "ipa": "/\u02C8komu vaj vo\u02C8se/", "accept": [] },
+    { "id": "fil-01", "lang": "fil", "text": "Magandang umaga", "romanization": "", "ipa": "/ma\u0261an\u02C8da\u014B u\u02C8ma\u0261a/", "accept": [] },
+    { "id": "fil-02", "lang": "fil", "text": "Salamat po", "romanization": "", "ipa": "/sa\u02C8lamat po/", "accept": [] },
+    { "id": "fil-03", "lang": "fil", "text": "Kumusta ka?", "romanization": "", "ipa": "/ku\u02C8musta ka/", "accept": [] }
+  ]
+};
+
+/* ------------------------------------------------------------------ *
+ *  LANGS — language table (design §4) incl. backups                  *
+ *  asr : BCP-47 for SpeechRecognition                                *
+ *  asrRetry : alternate code tried on `language-not-supported`/error *
+ *  tts : speechSynthesis base code                                   *
+ *  flag: key into Flags                                              *
+ *  dir : ltr | rtl                                                   *
+ * ------------------------------------------------------------------ */
+const LANGS = {
+  en: { name: 'English',          asr: 'en-US', tts: 'en', flag: 'GB', dir: 'ltr' },
+  zh: { name: 'Mandarin',         asr: 'zh-CN', tts: 'zh', flag: 'CN', dir: 'ltr' },
+  ta: { name: 'Tamil',            asr: 'ta-IN', tts: 'ta', flag: 'IN', dir: 'ltr' },
+  hi: { name: 'Hindi',            asr: 'hi-IN', tts: 'hi', flag: 'IN', dir: 'ltr' },
+  ms: { name: 'Bahasa Melayu',    asr: 'ms-MY', tts: 'ms', flag: 'MY', dir: 'ltr' },
+  id: { name: 'Bahasa Indonesia', asr: 'id-ID', tts: 'id', flag: 'ID', dir: 'ltr' },
+  th: { name: 'Thai',             asr: 'th-TH', tts: 'th', flag: 'TH', dir: 'ltr' },
+  my: { name: 'Burmese',          asr: 'my-MM', tts: 'my', flag: 'MM', dir: 'ltr' },
+  vi: { name: 'Vietnamese',       asr: 'vi-VN', tts: 'vi', flag: 'VN', dir: 'ltr' },
+  fr: { name: 'French',           asr: 'fr-FR', tts: 'fr', flag: 'FR', dir: 'ltr' },
+  de: { name: 'German',           asr: 'de-DE', tts: 'de', flag: 'DE', dir: 'ltr' },
+  es: { name: 'Spanish',          asr: 'es-ES', tts: 'es', flag: 'ES', dir: 'ltr' },
+  he: { name: 'Hebrew',           asr: 'he-IL', asrRetry: 'iw-IL', tts: 'he', flag: 'IL', dir: 'rtl' },
+  ar: { name: 'Arabic',           asr: 'ar-SA', tts: 'ar', flag: 'SA', dir: 'rtl' },
+  ru: { name: 'Russian',          asr: 'ru-RU', tts: 'ru', flag: 'RU', dir: 'ltr' },
+  // backups
+  ja: { name: 'Japanese',         asr: 'ja-JP', tts: 'ja', flag: 'JP', dir: 'ltr' },
+  ko: { name: 'Korean',           asr: 'ko-KR', tts: 'ko', flag: 'KR', dir: 'ltr' },
+  it: { name: 'Italian',          asr: 'it-IT', tts: 'it', flag: 'IT', dir: 'ltr' },
+  pt: { name: 'Portuguese',       asr: 'pt-PT', tts: 'pt', flag: 'PT', dir: 'ltr' },
+  fil:{ name: 'Filipino',         asr: 'fil-PH', asrRetry: 'tl-PH', tts: 'fil', flag: 'PH', dir: 'ltr' }
+};
+
+/* ------------------------------------------------------------------ *
+ *  FLAGS — hand-written minimal inline SVGs, 4:3 (design §4).        *
+ *  Complex emblems simplified to clean geometry.                     *
+ * ------------------------------------------------------------------ */
+const Flags = (() => {
+  const svg = (inner) => `<svg viewBox="0 0 60 45" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+  const rect = (x,y,w,h,f) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f}"/>`;
+  const map = {
+    GB: svg(`${rect(0,0,60,45,'#012169')}
+      <path d="M0,0 60,45 M60,0 0,45" stroke="#fff" stroke-width="9"/>
+      <path d="M0,0 60,45 M60,0 0,45" stroke="#C8102E" stroke-width="5"/>
+      <path d="M30,0 V45 M0,22.5 H60" stroke="#fff" stroke-width="15"/>
+      <path d="M30,0 V45 M0,22.5 H60" stroke="#C8102E" stroke-width="9"/>`),
+    CN: svg(`${rect(0,0,60,45,'#DE2910')}
+      <g fill="#FFDE00">
+        <polygon points="10,6 12,12 18,12 13,16 15,22 10,18 5,22 7,16 2,12 8,12"/>
+        <circle cx="21" cy="4" r="1.6"/><circle cx="24" cy="8" r="1.6"/>
+        <circle cx="24" cy="13" r="1.6"/><circle cx="21" cy="17" r="1.6"/>
+      </g>`),
+    IN: svg(`${rect(0,0,60,15,'#FF9933')}${rect(0,15,60,15,'#fff')}${rect(0,30,60,15,'#138808')}
+      <circle cx="30" cy="22.5" r="5.4" fill="none" stroke="#000080" stroke-width="1"/>
+      <circle cx="30" cy="22.5" r="1" fill="#000080"/>
+      <g stroke="#000080" stroke-width="0.5">
+        <line x1="30" y1="17.1" x2="30" y2="27.9"/><line x1="24.6" y1="22.5" x2="35.4" y2="22.5"/>
+        <line x1="26.2" y1="18.7" x2="33.8" y2="26.3"/><line x1="33.8" y1="18.7" x2="26.2" y2="26.3"/></g>`),
+    MY: svg(`${(()=>{let s='';for(let i=0;i<14;i++){s+=rect(0,i*(45/14),60,45/14,i%2?'#fff':'#CC0001');}return s;})()}
+      ${rect(0,0,34,24,'#010066')}
+      <circle cx="14" cy="12" r="7" fill="#FFCC00"/><circle cx="17" cy="12" r="6" fill="#010066"/>
+      <polygon points="26,12 22.4,13.2 24.6,10.1 24.6,13.9 22.4,10.8" fill="#FFCC00"/>`),
+    ID: svg(`${rect(0,0,60,22.5,'#CE1126')}${rect(0,22.5,60,22.5,'#fff')}`),
+    TH: svg(`${rect(0,0,60,7.5,'#A51931')}${rect(0,7.5,60,7.5,'#F4F5F8')}${rect(0,15,60,15,'#2D2A4A')}${rect(0,30,60,7.5,'#F4F5F8')}${rect(0,37.5,60,7.5,'#A51931')}`),
+    MM: svg(`${rect(0,0,60,15,'#FECB00')}${rect(0,15,60,15,'#34B233')}${rect(0,30,60,15,'#EA2839')}
+      <polygon points="30,10 33,20 43,20 35,26 38,36 30,30 22,36 25,26 17,20 27,20" fill="#fff"/>`),
+    VN: svg(`${rect(0,0,60,45,'#DA251D')}
+      <polygon points="30,10 33.5,20.5 44.5,20.5 35.5,27 39,37.5 30,31 21,37.5 24.5,27 15.5,20.5 26.5,20.5" fill="#FFFF00"/>`),
+    FR: svg(`${rect(0,0,20,45,'#0055A4')}${rect(20,0,20,45,'#fff')}${rect(40,0,20,45,'#EF4135')}`),
+    DE: svg(`${rect(0,0,60,15,'#000')}${rect(0,15,60,15,'#DD0000')}${rect(0,30,60,15,'#FFCE00')}`),
+    ES: svg(`${rect(0,0,60,11.25,'#AA151B')}${rect(0,11.25,60,22.5,'#F1BF00')}${rect(0,33.75,60,11.25,'#AA151B')}
+      ${rect(12,18,7,9,'#AD1519')}`),
+    IL: svg(`${rect(0,0,60,45,'#fff')}${rect(0,6,60,5,'#0038B8')}${rect(0,34,60,5,'#0038B8')}
+      <g fill="none" stroke="#0038B8" stroke-width="1.4">
+        <polygon points="30,15 34.5,23 25.5,23"/><polygon points="30,30 34.5,22 25.5,22"/></g>`),
+    SA: svg(`${rect(0,0,60,45,'#006C35')}
+      ${rect(10,20,40,3.5,'#fff')}
+      <rect x="11" y="27" width="30" height="3" fill="#fff"/>`),
+    RU: svg(`${rect(0,0,60,15,'#fff')}${rect(0,15,60,15,'#0039A6')}${rect(0,30,60,15,'#D52B1E')}`),
+    JP: svg(`${rect(0,0,60,45,'#fff')}<circle cx="30" cy="22.5" r="10" fill="#BC002D"/>`),
+    KR: svg(`${rect(0,0,60,45,'#fff')}
+      <circle cx="30" cy="22.5" r="9" fill="#CD2E3A"/>
+      <path d="M30,13.5 a9,9 0 0,1 0,18 a4.5,4.5 0 0,1 0,-9 a4.5,4.5 0 0,0 0,-9" fill="#0047A0"/>`),
+    IT: svg(`${rect(0,0,20,45,'#009246')}${rect(20,0,20,45,'#fff')}${rect(40,0,20,45,'#CE2B37')}`),
+    PT: svg(`${rect(0,0,24,45,'#006600')}${rect(24,0,36,45,'#FF0000')}
+      <circle cx="24" cy="22.5" r="6" fill="none" stroke="#FFFF00" stroke-width="1.4"/>`),
+    PH: svg(`${rect(0,0,60,22.5,'#0038A8')}${rect(0,22.5,60,22.5,'#CE1126')}
+      <polygon points="0,0 26,22.5 0,45" fill="#fff"/>
+      <polygon points="7,20 8,22.5 10.5,22.5 8.5,24 9.2,26.5 7,25 4.8,26.5 5.5,24 3.5,22.5 6,22.5" fill="#FCD116"/>`)
+  };
+  return {
+    svg(code){ return map[code] || svg(`${rect(0,0,60,45,'#0a1a2a')}<text x="30" y="27" fill="#00E5FF" font-size="12" text-anchor="middle" font-family="monospace">${code||'?'}</text>`); }
+  };
+})();
+
+/* ================================================================= *
+ *  SCORER — pure functions (design §6). Also loaded by tests.html.  *
+ *  Depends only on: globalThis.pinyinPro (optional), Intl.          *
+ * ================================================================= */
+const Scorer = (function () {
+  const hasPinyin = () =>
+    typeof globalThis.pinyinPro !== 'undefined' && typeof globalThis.pinyinPro.pinyin === 'function';
+
+  // grapheme segmentation (falls back to spread if Segmenter missing)
+  let _seg = null;
+  function graphemes(s) {
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      if (!_seg) _seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+      return [..._seg.segment(s)].map(x => x.segment);
+    }
+    return [...s];
+  }
+
+  function stripDiacritics(s) {
+    // NFD then remove combining marks
+    return s.normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
+  }
+
+  function toPinyin(t) {
+    if (!hasPinyin()) return t; // graceful: matching still works on hanzi vs hanzi
+    try {
+      const arr = globalThis.pinyinPro.pinyin(t, { toneType: 'none', type: 'array' });
+      return Array.isArray(arr) ? arr.join(' ') : String(arr);
+    } catch (e) { return t; }
+  }
+
+  // Core text normaliser (design §6)
+  function normalize(text, lang) {
+    if (text == null) return '';
+    let t = String(text).normalize('NFC').toLowerCase();
+
+    if (lang === 'ar') t = t.replace(/[\u064B-\u065F\u0670\u0640]/g, ''); // tashkeel, tatweel
+    if (lang === 'he') t = t.replace(/[\u0591-\u05C7]/g, '');             // niqqud, cantillation
+
+    // Diacritic policy: keep for Vietnamese (tonal spelling matters); strip for the other Latin langs
+    if (['fr','de','es','ms','id','en','it','pt','fil'].includes(lang)) {
+      t = stripDiacritics(t);
+    }
+
+    // Remove punctuation & symbols; collapse whitespace
+    t = t.replace(/[\p{P}\p{S}]/gu, ' ').replace(/\s+/g, ' ').trim();
+
+    // Scripts written without spaces
+    if (['zh','th','my','ja'].includes(lang)) t = t.replace(/\s+/g, '');
+
+    // Mandarin → toneless pinyin syllables
+    if (lang === 'zh') t = toPinyin(t).replace(/\s+/g, ' ').trim();
+
+    return t;
+  }
+
+  // Levenshtein over arrays (graphemes/tokens)
+  function levenshtein(a, b) {
+    const m = a.length, n = b.length;
+    if (m === 0) return n;
+    if (n === 0) return m;
+    let prev = new Array(n + 1);
+    let cur = new Array(n + 1);
+    for (let j = 0; j <= n; j++) prev[j] = j;
+    for (let i = 1; i <= m; i++) {
+      cur[0] = i;
+      for (let j = 1; j <= n; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+      }
+      [prev, cur] = [cur, prev];
+    }
+    return prev[n];
+  }
+
+  function sim(a, b) {
+    const ga = graphemes(a), gb = graphemes(b);
+    const d = levenshtein(ga, gb);
+    return 1 - d / Math.max(ga.length, gb.length, 1);
+  }
+
+  // Word-window similarity: tolerate extra filler words around the target
+  function windowSim(heard, target) {
+    const hw = heard.split(' ').filter(Boolean);
+    const tw = target.split(' ').filter(Boolean);
+    // If it's a no-space script or heard is short, direct compare
+    if (hw.length <= 1 || tw.length <= 1 || hw.length <= tw.length) {
+      return sim(heard, target);
+    }
+    let best = sim(heard, target);
+    const lo = Math.max(1, tw.length - 2);
+    const hi = tw.length + 2;
+    for (let win = lo; win <= hi; win++) {
+      for (let i = 0; i + win <= hw.length; i++) {
+        const sub = hw.slice(i, i + win).join(' ');
+        const s = sim(sub, target);
+        if (s > best) best = s;
+      }
+    }
+    return best;
+  }
+
+  // Full score across up to 5 recognition alternatives × targets (text + accept[])
+  function score(results, phrase, lang) {
+    const alts = (results || []).slice(0, 5).map(r => (typeof r === 'string' ? r : r.transcript) || '');
+    const targets = [phrase.text, ...(phrase.accept || [])];
+    let best = 0;
+    for (const h of alts) {
+      const nh = normalize(h, lang);
+      if (!nh) continue;
+      for (const t of targets) {
+        const nt = normalize(t, lang);
+        if (!nt) continue;
+        const s = windowSim(nh, nt);
+        if (s > best) best = s;
+      }
+    }
+    return best;
+  }
+
+  function threshold(lang) {
+    return (CONFIG.threshold[lang] != null) ? CONFIG.threshold[lang] : CONFIG.threshold.default;
+  }
+  function passes(scoreVal, lang) { return scoreVal >= threshold(lang); }
+  function isPerfect(scoreVal) { return scoreVal >= CONFIG.perfectAt; }
+
+  return { normalize, graphemes, levenshtein, sim, windowSim, score, threshold, passes, isPerfect, stripDiacritics, toPinyin };
+})();
+
+// Expose for tests.html
+globalThis.Scorer = Scorer;
+globalThis.CONFIG = CONFIG;
+globalThis.PHRASES = PHRASES;
+
+/* Small DOM helpers */
+const $  = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+const el = (id) => document.getElementById(id);
+
+/* ================================================================= *
+ *  STORE — localStorage runs, leaderboard, CSV/JSON, webhook queue  *
+ *  (design §8, R10/R11)                                             *
+ * ================================================================= */
+const Store = (function () {
+  const KEY = CONFIG.storageKey;
+
+  function _read() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return { runs: [], pendingWebhook: [] };
+      const obj = JSON.parse(raw);
+      return { runs: obj.runs || [], pendingWebhook: obj.pendingWebhook || [] };
+    } catch (e) {
+      return { runs: [], pendingWebhook: [] };
+    }
+  }
+  function _write(db) {
+    try { localStorage.setItem(KEY, JSON.stringify(db)); }
+    catch (e) { console.warn('Store write failed', e); }
+  }
+
+  function all() { return _read().runs; }
+
+  function save(run) {
+    const db = _read();
+    db.runs.push(run);
+    if (CONFIG.leaderboardWebhook) db.pendingWebhook.push(run);
+    _write(db);
+    // fire-and-forget flush
+    if (CONFIG.leaderboardWebhook) flushWebhook();
+    return run;
+  }
+
+  // Leaderboard: final time ascending; tie broken by fewer hints (R9.3)
+  function leaderboard(limit = 10) {
+    const runs = _read().runs.slice();
+    runs.sort((a, b) => (a.finalTimeMs - b.finalTimeMs) || (a.hints - b.hints) || (a.createdAt - b.createdAt));
+    return limit ? runs.slice(0, limit) : runs;
+  }
+
+  function rankOf(runId) {
+    const sorted = leaderboard(0);
+    const idx = sorted.findIndex(r => r.id === runId);
+    return idx < 0 ? null : idx + 1;
+  }
+
+  function clear() { _write({ runs: [], pendingWebhook: [] }); }
+
+  /* ---- exports ---- */
+  function _csvCell(v) {
+    const s = (v == null) ? '' : String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function toCSV() {
+    const cols = [
+      'runId','createdAt','name','age','gender',
+      'finalTimeMs','elapsedMs','penaltyMs','bonusMs','hints','skips','perfects','maxCombo',
+      'stageIndex','lang','phraseId','target','heard','similarity','threshold',
+      'attempts','stageHints','passed','skipped','perfect','stageMs'
+    ];
+    const rows = [cols.join(',')];
+    for (const r of _read().runs) {
+      for (const st of r.stages) {
+        rows.push([
+          r.id, new Date(r.createdAt).toISOString(), r.player.name, r.player.age, r.player.gender,
+          r.finalTimeMs, r.elapsedMs, r.penaltyMs, r.bonusMs, r.hints, r.skips, r.perfects, r.maxCombo,
+          st.index, st.lang, st.phraseId, st.target, st.heard, st.similarity, st.threshold,
+          st.attempts, st.hints, st.passed, st.skipped, st.perfect, st.stageMs
+        ].map(_csvCell).join(','));
+      }
+    }
+    return rows.join('\n');
+  }
+  function toJSON() { return JSON.stringify(_read().runs, null, 2); }
+
+  function download(filename, text, mime) {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function exportCSV() { download('linguagrid-runs.csv', toCSV(), 'text/csv'); }
+  function exportJSON() { download('linguagrid-runs.json', toJSON(), 'application/json'); }
+
+  /* ---- webhook queue with retry (R11.3) ---- */
+  async function flushWebhook() {
+    if (!CONFIG.leaderboardWebhook) return;
+    const db = _read();
+    if (!db.pendingWebhook.length) return;
+    const still = [];
+    for (const run of db.pendingWebhook) {
+      try {
+        const res = await fetch(CONFIG.leaderboardWebhook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(run)
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+      } catch (e) {
+        still.push(run); // keep for next load
+      }
+    }
+    const fresh = _read();
+    fresh.pendingWebhook = still;
+    _write(fresh);
+  }
+
+  function pendingCount() { return _read().pendingWebhook.length; }
+
+  return { all, save, leaderboard, rankOf, clear, exportCSV, exportJSON, toCSV, toJSON, flushWebhook, pendingCount };
+})();
+
+/* ---- Admin panel (Ctrl+Shift+L) — R11.2 ---- */
+const Admin = (function () {
+  function open() {
+    const runs = Store.all();
+    el('adminSummary').textContent =
+      `${runs.length} run(s) stored · ${Store.pendingCount()} queued for webhook`;
+    el('admin').classList.add('show');
+  }
+  function close() { el('admin').classList.remove('show'); }
+  function wire() {
+    el('admCsv').onclick   = () => Store.exportCSV();
+    el('admJson').onclick  = () => Store.exportJSON();
+    el('admFlush').onclick = () => Store.flushWebhook().then(open);
+    el('admClear').onclick = () => {
+      if (confirm('Delete ALL stored runs and the webhook queue? This cannot be undone.')) {
+        Store.clear(); open();
+      }
+    };
+    el('admClose').onclick = close;
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'L' || e.key === 'l')) { e.preventDefault(); open(); }
+      if (e.key === 'Escape') close();
+    });
+  }
+  return { open, close, wire };
+})();
+
+/* ================================================================= *
+ *  AUDIO — hint playback (MP3 → speechSynthesis), synth SFX,        *
+ *  voices readiness + hint-audio eligibility (design §5, R7, R12.4) *
+ * ================================================================= */
+const Audio2 = (function () {
+  let ac = null;               // Web Audio context (lazy, needs user gesture)
+  let master = null;
+  let hintPlaying = false;
+  let voices = [];
+  const mp3Cache = new Map();  // phraseId -> boolean (exists?)
+
+  function ctx() {
+    if (!ac) {
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      master = ac.createGain();
+      master.gain.value = 0.6;
+      master.connect(ac.destination);
+    }
+    if (ac.state === 'suspended') ac.resume();
+    return ac;
+  }
+  function unlock() { try { ctx(); } catch (e) {} }
+
+  /* ---------- voices ---------- */
+  function refreshVoices() {
+    try { voices = window.speechSynthesis ? speechSynthesis.getVoices() : []; }
+    catch (e) { voices = []; }
+    return voices;
+  }
+  function voicesReady() {
+    return new Promise((resolve) => {
+      if (!window.speechSynthesis) return resolve([]);
+      refreshVoices();
+      if (voices.length) return resolve(voices);
+      let done = false;
+      const finish = () => { if (done) return; done = true; resolve(refreshVoices()); };
+      speechSynthesis.addEventListener('voiceschanged', finish, { once: true });
+      setTimeout(finish, CONFIG.voicesTimeoutMs);
+    });
+  }
+  function bestVoiceFor(baseCode) {
+    const cands = voices.filter(v => (v.lang || '').toLowerCase().startsWith(baseCode.toLowerCase()));
+    if (!cands.length) return null;
+    // prefer Natural / Online / Google voices
+    const pref = cands.find(v => /natural|online|google/i.test(v.name));
+    return pref || cands[0];
+  }
+  function hasVoice(baseCode) { return !!bestVoiceFor(baseCode); }
+
+  /* ---------- bundled MP3 probe ---------- */
+  async function mp3Exists(phraseId) {
+    if (!CONFIG.useBundledAudio) return false;
+    if (mp3Cache.has(phraseId)) return mp3Cache.get(phraseId);
+    const url = CONFIG.audioPath + phraseId + '.mp3';
+    let ok = false;
+    try {
+      const res = await fetch(url, { method: 'HEAD' });
+      ok = res.ok;
+    } catch (e) { ok = false; }
+    mp3Cache.set(phraseId, ok);
+    return ok;
+  }
+
+  /* ---------- hint playback ---------- */
+  // Returns {ok:true} if any audio played, {ok:false} if nothing available.
+  async function playHint(phrase) {
+    const lang = phrase.lang;
+    hintPlaying = true;
+    try {
+      // 1. bundled MP3
+      if (await mp3Exists(phrase.id)) {
+        await new Promise((resolve) => {
+          const a = new Audio(CONFIG.audioPath + phrase.id + '.mp3');
+          a.onended = resolve; a.onerror = resolve;
+          a.play().catch(resolve);
+        });
+        return { ok: true, via: 'mp3' };
+      }
+      // 2. speechSynthesis fallback
+      const base = LANGS[lang] ? LANGS[lang].tts : lang;
+      if (window.speechSynthesis && hasVoice(base)) {
+        await new Promise((resolve) => {
+          try {
+            speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(phrase.text);
+            const v = bestVoiceFor(base);
+            if (v) { u.voice = v; u.lang = v.lang; } else { u.lang = LANGS[lang] ? LANGS[lang].asr : lang; }
+            u.rate = 0.9;
+            u.onend = resolve; u.onerror = resolve;
+            speechSynthesis.speak(u);
+            // safety timeout
+            setTimeout(resolve, 6000);
+          } catch (e) { resolve(); }
+        });
+        return { ok: true, via: 'tts' };
+      }
+      return { ok: false };
+    } finally {
+      hintPlaying = false;
+    }
+  }
+  function isHintPlaying() { return hintPlaying; }
+
+  /* ---------- synthesised SFX (Web Audio) ---------- */
+  function tone({ freq = 440, to = null, type = 'sine', dur = 0.15, gain = 0.3, delay = 0, sweepTo = null }) {
+    const c = ctx();
+    const t0 = c.currentTime + delay;
+    const osc = c.createOscillator();
+    const g = c.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (sweepTo != null) osc.frequency.exponentialRampToValueAtTime(Math.max(1, sweepTo), t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g); g.connect(master);
+    osc.start(t0); osc.stop(t0 + dur + 0.02);
+  }
+  function noise({ dur = 0.2, gain = 0.2, delay = 0, hp = 800 }) {
+    const c = ctx();
+    const t0 = c.currentTime + delay;
+    const n = Math.floor(c.sampleRate * dur);
+    const buf = c.createBuffer(1, n, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = c.createBufferSource(); src.buffer = buf;
+    const filt = c.createBiquadFilter(); filt.type = 'highpass'; filt.frequency.value = hp;
+    const g = c.createGain(); g.gain.value = gain;
+    src.connect(filt); filt.connect(g); g.connect(master);
+    src.start(t0);
+  }
+
+  const SFX = {
+    rise()    { tone({ freq: 120, sweepTo: 520, type: 'sawtooth', dur: 0.55, gain: 0.25 }); noise({ dur: 0.3, gain: 0.06, hp: 300 }); },
+    listen()  { tone({ freq: 660, type: 'sine', dur: 0.1, gain: 0.25 }); tone({ freq: 990, dur: 0.1, gain: 0.2, delay: 0.08 }); },
+    pass()    { tone({ freq: 523, dur: 0.12, gain: 0.3 }); tone({ freq: 784, dur: 0.16, gain: 0.3, delay: 0.1 }); noise({ dur: 0.25, gain: 0.08, hp: 1200 }); },
+    perfect() { [523,659,784,1047].forEach((f,i)=>tone({ freq:f, dur:0.16, gain:0.3, delay:i*0.09, type:'triangle'})); },
+    fail()    { tone({ freq: 300, sweepTo: 90, type: 'sawtooth', dur: 0.4, gain: 0.28 }); },
+    hint()    { tone({ freq: 880, dur: 0.09, gain: 0.2, type: 'square' }); },
+    finish()  { [392,523,659,784,1047].forEach((f,i)=>tone({ freq:f, dur:0.22, gain:0.3, delay:i*0.12, type:'triangle'})); },
+    boost()   { tone({ freq: 200, sweepTo: 900, type: 'sawtooth', dur: 0.35, gain: 0.22 }); }
+  };
+
+  return { unlock, voicesReady, refreshVoices, hasVoice, bestVoiceFor, mp3Exists, playHint, isHintPlaying, SFX };
+})();
+
+/* ================================================================= *
+ *  SPEECH — SpeechRecognition wrapper + mic analyser (design §7)    *
+ * ================================================================= */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+const Speech = (function () {
+  let analyser = null, micStream = null, audioCtx = null, dataArr = null;
+
+  function supported() { return !!SR; }
+
+  /* ---- mic analyser for waveform / level meter ---- */
+  async function initMic() {
+    if (micStream) return true;
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = audioCtx.createMediaStreamSource(micStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    dataArr = new Uint8Array(analyser.frequencyBinCount);
+    src.connect(analyser);
+    return true;
+  }
+  function stopMic() {
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  }
+  // 0..1 RMS level
+  function level() {
+    if (!analyser) return 0;
+    analyser.getByteTimeDomainData(dataArr);
+    let sum = 0;
+    for (let i = 0; i < dataArr.length; i++) { const v = (dataArr[i] - 128) / 128; sum += v * v; }
+    return Math.min(1, Math.sqrt(sum / dataArr.length) * 2.4);
+  }
+  function waveform() {
+    if (!analyser) return null;
+    analyser.getByteTimeDomainData(dataArr);
+    return dataArr;
+  }
+
+  /* ---- core recognition ---- *
+   * listen(bcp47, {onInterim, retryCode}) →
+   *   Promise<{alternatives:[{transcript,confidence}], error?}>
+   */
+  function listenOnce(bcp47, opts = {}) {
+    return new Promise((resolve) => {
+      if (!SR) return resolve({ alternatives: [], error: 'unsupported' });
+      const rec = new SR();
+      rec.lang = bcp47;
+      rec.interimResults = true;
+      rec.maxAlternatives = 5;
+      rec.continuous = false;
+
+      let settled = false;
+      let hardStop = null;
+      const done = (payload) => {
+        if (settled) return; settled = true;
+        if (hardStop) clearTimeout(hardStop);
+        try { rec.stop(); } catch (e) {}
+        resolve(payload);
+      };
+
+      rec.onresult = (ev) => {
+        const last = ev.results[ev.results.length - 1];
+        // interim → UI
+        if (opts.onInterim && last && last[0]) opts.onInterim(last[0].transcript, last.isFinal);
+        if (last && last.isFinal) {
+          const alts = [];
+          for (let i = 0; i < last.length; i++) {
+            alts.push({ transcript: last[i].transcript, confidence: last[i].confidence });
+          }
+          done({ alternatives: alts });
+        }
+      };
+      rec.onerror = (ev) => {
+        done({ alternatives: [], error: ev.error || 'error' });
+      };
+      rec.onend = () => { if (!settled) done({ alternatives: [] }); };
+
+      try { rec.start(); }
+      catch (e) { return done({ alternatives: [], error: 'start-failed' }); }
+
+      hardStop = setTimeout(() => { try { rec.stop(); } catch (e) {} }, CONFIG.maxListenMs);
+    });
+  }
+
+  /* High-level listen for a stage language.
+   * Handles Hebrew he-IL → iw-IL retry (R3.5) and reports
+   * `language-not-supported` up to Game for the swap logic.
+   */
+  async function listen(langCode, opts = {}) {
+    const L = LANGS[langCode];
+    const primary = L ? L.asr : langCode;
+    let res = await listenOnce(primary, opts);
+
+    // Hebrew / Filipino alternate ASR code on language error
+    if (res.error === 'language-not-supported' && L && L.asrRetry) {
+      res = await listenOnce(L.asrRetry, opts);
+    }
+    return res;
+  }
+
+  return { supported, initMic, stopMic, level, waveform, listen, listenOnce };
+})();
+
+/* ================================================================= *
+ *  RENDERER — Canvas 2D TRON highway, cycle, barrier, particles     *
+ *  (design §9, R12, R13). Targets 60fps via rAF + dt scaling.       *
+ * ================================================================= */
+const Renderer = (function () {
+  const canvas = el('highway');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  let W = 0, H = 0, DPR = 1;
+  let raf = null, last = 0;
+  let reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // world state
+  const state = {
+    scroll: 0,          // road line scroll
+    speed: 0,           // current speed (units/s)
+    targetSpeed: 0,     // desired speed
+    cruise: 240,        // cruising speed
+    slow: 40,           // near-barrier crawl
+    boost: 620,         // post-pass boost
+    cyclePulse: 0,      // trail intensity
+    barrier: null,      // {y01, state:'rising'|'up'|'shatter'|'none', t, shakeT}
+    particles: [],
+    skyOffset: 0,
+    lightMeter: 0       // 0..1 mic level for cycle glow
+  };
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = canvas.clientWidth; H = canvas.clientHeight;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+
+  /* ---------- perspective helpers ---------- */
+  const horizonY = () => H * 0.40;
+  // project a point at road-depth z(0=near/bottom .. 1=far/horizon) and lateral x(-1..1)
+  function project(z, x) {
+    const hy = horizonY();
+    const y = H - (H - hy) * z;                 // bottom→horizon
+    const roadHalfNear = W * 0.62;
+    const roadHalfFar = W * 0.045;
+    const half = roadHalfNear + (roadHalfFar - roadHalfNear) * z;
+    const cx = W / 2;
+    return { x: cx + x * half, y, half };
+  }
+
+  /* ---------- draw pieces ---------- */
+  function drawBackground() {
+    ctx.fillStyle = '#02040A';
+    ctx.fillRect(0, 0, W, H);
+    // sky gradient
+    const hy = horizonY();
+    const g = ctx.createLinearGradient(0, 0, 0, hy);
+    g.addColorStop(0, '#05010f');
+    g.addColorStop(1, '#0a0630');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, hy);
+    // sun / horizon glow
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const sun = ctx.createRadialGradient(W/2, hy, 4, W/2, hy, W*0.5);
+    sun.addColorStop(0, 'rgba(255,122,0,0.35)');
+    sun.addColorStop(0.4, 'rgba(255,122,0,0.10)');
+    sun.addColorStop(1, 'rgba(255,122,0,0)');
+    ctx.fillStyle = sun;
+    ctx.fillRect(0, 0, W, hy);
+    ctx.restore();
+  }
+
+  function drawSkyline() {
+    const hy = horizonY();
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(0,229,255,0.35)';
+    ctx.lineWidth = 1.5;
+    const base = hy;
+    const seed = 9973;
+    for (let layer = 0; layer < 2; layer++) {
+      const par = (state.skyOffset * (layer ? 0.5 : 1)) % 220;
+      const h0 = layer ? 26 : 46;
+      ctx.beginPath();
+      for (let i = -1; i < W / 22 + 2; i++) {
+        const bx = i * 22 - par + (layer ? 11 : 0);
+        const hgt = h0 * (0.4 + ((Math.sin((i * 7 + seed + layer * 33)) + 1) / 2) * 0.9);
+        ctx.rect(bx, base - hgt, 16, hgt);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawRoad() {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    // road fill (subtle)
+    const nearL = project(0, -1), nearR = project(0, 1);
+    const farL = project(1, -1), farR = project(1, 1);
+    ctx.beginPath();
+    ctx.moveTo(nearL.x, nearL.y); ctx.lineTo(nearR.x, nearR.y);
+    ctx.lineTo(farR.x, farR.y); ctx.lineTo(farL.x, farL.y);
+    ctx.closePath();
+    const rg = ctx.createLinearGradient(0, H, 0, horizonY());
+    rg.addColorStop(0, 'rgba(0,60,120,0.28)');
+    rg.addColorStop(1, 'rgba(0,20,50,0.05)');
+    ctx.fillStyle = rg;
+    ctx.fill();
+
+    // edges
+    ctx.shadowBlur = 16; ctx.shadowColor = 'rgba(0,229,255,0.9)';
+    ctx.strokeStyle = 'rgba(0,229,255,0.95)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(nearL.x, nearL.y); ctx.lineTo(farL.x, farL.y);
+    ctx.moveTo(nearR.x, nearR.y); ctx.lineTo(farR.x, farR.y);
+    ctx.stroke();
+
+    // vertical lanes
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(0,229,255,0.28)';
+    ctx.beginPath();
+    for (let l = -0.66; l <= 0.66; l += 0.33) {
+      const a = project(0, l), b = project(1, l);
+      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+    }
+    ctx.stroke();
+
+    // horizontal scrolling lines
+    ctx.strokeStyle = 'rgba(0,229,255,0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const spacing = 0.055;
+    for (let k = 0; k < 40; k++) {
+      let z = ((k * spacing) + (state.scroll % spacing));
+      if (z <= 0 || z >= 1) continue;
+      const a = project(z, -1), b = project(z, 1);
+      const alpha = 0.15 + (1 - z) * 0.55;
+      ctx.globalAlpha = alpha;
+      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  function drawCycle() {
+    // player light-cycle near the bottom center
+    const p = project(0.08, 0);
+    const cx = p.x, cy = p.y - 6;
+    const s = Math.max(30, W * 0.05);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    // trail ribbon behind
+    const trailGrad = ctx.createLinearGradient(cx, cy, cx, cy + s * 3.4);
+    trailGrad.addColorStop(0, 'rgba(0,229,255,0.9)');
+    trailGrad.addColorStop(1, 'rgba(0,229,255,0)');
+    ctx.fillStyle = trailGrad;
+    const tw = s * (0.22 + state.cyclePulse * 0.12);
+    ctx.beginPath();
+    ctx.moveTo(cx - tw, cy + s * 0.4);
+    ctx.lineTo(cx + tw, cy + s * 0.4);
+    ctx.lineTo(cx + tw * 0.4, cy + s * 3.4);
+    ctx.lineTo(cx - tw * 0.4, cy + s * 3.4);
+    ctx.closePath();
+    ctx.fill();
+
+    // cycle silhouette (vector)
+    ctx.shadowBlur = 18; ctx.shadowColor = '#00E5FF';
+    ctx.strokeStyle = '#9defff';
+    ctx.fillStyle = 'rgba(0,150,220,0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx - s*0.5, cy + s*0.35);
+    ctx.quadraticCurveTo(cx - s*0.55, cy - s*0.05, cx - s*0.15, cy - s*0.12);
+    ctx.lineTo(cx + s*0.2, cy - s*0.14);
+    ctx.quadraticCurveTo(cx + s*0.6, cy - s*0.1, cx + s*0.55, cy + s*0.3);
+    ctx.lineTo(cx + s*0.35, cy + s*0.36);
+    ctx.quadraticCurveTo(cx, cy + s*0.2, cx - s*0.3, cy + s*0.36);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+
+    // canopy glow
+    ctx.fillStyle = 'rgba(0,229,255,0.9)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - s*0.05, s*0.16, s*0.09, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // wheels
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath(); ctx.ellipse(cx - s*0.36, cy + s*0.36, s*0.1, s*0.14, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + s*0.4, cy + s*0.34, s*0.1, s*0.14, 0, 0, Math.PI*2); ctx.fill();
+
+    // mic-driven glow ring
+    if (state.lightMeter > 0.02) {
+      ctx.strokeStyle = `rgba(255,179,71,${0.3 + state.lightMeter*0.6})`;
+      ctx.lineWidth = 2 + state.lightMeter * 4;
+      ctx.beginPath(); ctx.arc(cx, cy, s * (0.7 + state.lightMeter*0.5), 0, Math.PI*2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawBarrier() {
+    const b = state.barrier;
+    if (!b || b.state === 'none') return;
+    const z = 0.52; // barrier sits mid-road
+    const shakeX = (b.state === 'shake') ? Math.sin(b.shakeT * 60) * 8 * Math.max(0, 1 - b.shakeT * 2.5) : 0;
+    const a = project(z, -1), c = project(z, 1);
+    const baseY = a.y;
+    let rise = 1;
+    if (b.state === 'rising') rise = Math.min(1, b.t / 0.6);
+    const wallH = (H * 0.34) * rise;
+    const left = a.x + shakeX, right = c.x + shakeX;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    if (b.state === 'shatter') {
+      ctx.restore();
+      return; // wall gone; particles carry the effect
+    }
+
+    // wall body
+    const wg = ctx.createLinearGradient(0, baseY - wallH, 0, baseY);
+    wg.addColorStop(0, 'rgba(255,122,0,0.05)');
+    wg.addColorStop(1, 'rgba(255,122,0,0.4)');
+    ctx.fillStyle = wg;
+    ctx.fillRect(left, baseY - wallH, right - left, wallH);
+
+    // scan-line rising edge
+    ctx.shadowBlur = 22; ctx.shadowColor = '#FF7A00';
+    ctx.strokeStyle = b.flash ? '#FFE0B0' : '#FF9A33';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(left, baseY - wallH, right - left, wallH);
+
+    // horizontal energy scans
+    ctx.strokeStyle = 'rgba(255,179,71,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    const rows = 8;
+    for (let i = 1; i < rows; i++) {
+      const yy = baseY - wallH * (i / rows);
+      ctx.moveTo(left, yy); ctx.lineTo(right, yy);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawParticles(dt) {
+    if (!state.particles.length) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const pt of state.particles) {
+      pt.life -= dt;
+      pt.x += pt.vx * dt;
+      pt.y += pt.vy * dt;
+      pt.vy += 320 * dt; // gravity
+      const alpha = Math.max(0, pt.life / pt.max);
+      ctx.fillStyle = pt.color.replace('ALPHA', alpha.toFixed(3));
+      ctx.shadowBlur = 8; ctx.shadowColor = pt.glow;
+      ctx.fillRect(pt.x, pt.y, pt.s, pt.s);
+    }
+    ctx.restore();
+    state.particles = state.particles.filter(p => p.life > 0);
+  }
+
+  function shatter() {
+    const z = 0.52;
+    const a = project(z, -1), c = project(z, 1);
+    const baseY = a.y;
+    const n = reduceMotion ? 24 : 90;
+    for (let i = 0; i < n; i++) {
+      const x = a.x + Math.random() * (c.x - a.x);
+      const y = baseY - Math.random() * H * 0.3;
+      state.particles.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 420,
+        vy: -Math.random() * 320,
+        s: 2 + Math.random() * 4,
+        life: 0.6 + Math.random() * 0.6,
+        max: 1.2,
+        color: 'rgba(255,179,71,ALPHA)',
+        glow: '#FF7A00'
+      });
+    }
+    if (state.barrier) state.barrier.state = 'shatter';
+  }
+
+  /* ---------- public control ---------- */
+  function riseBarrier() {
+    state.barrier = { state: 'rising', t: 0, shakeT: 0, flash: false };
+    state.targetSpeed = state.slow;
+  }
+  function failBarrier() {
+    if (state.barrier) { state.barrier.state = 'shake'; state.barrier.shakeT = 0; state.barrier.flash = true; setTimeout(()=>{ if(state.barrier) state.barrier.flash=false; }, 250); }
+  }
+  function passBarrier() {
+    shatter();
+    state.targetSpeed = state.boost;
+    state.cyclePulse = 1;
+    setTimeout(() => { state.targetSpeed = state.cruise; }, 900);
+  }
+  function clearBarrier() { state.barrier = null; }
+  function setCruise() { state.targetSpeed = state.cruise; }
+  function stop0() { state.targetSpeed = 0; }
+  function setMic(v) { state.lightMeter = v; }
+
+  /* ---------- loop ---------- */
+  function frame(ts) {
+    const dt = Math.min(0.05, (ts - last) / 1000 || 0.016);
+    last = ts;
+
+    // ease speed
+    state.speed += (state.targetSpeed - state.speed) * Math.min(1, dt * 3);
+    state.scroll = (state.scroll + state.speed * dt * 0.0016) % 1;
+    if (state.scroll < 0) state.scroll += 1;
+    state.skyOffset += state.speed * dt * 0.012;
+    state.cyclePulse += (0 - state.cyclePulse) * Math.min(1, dt * 2) + (state.speed > 400 ? dt : 0);
+    state.cyclePulse = Math.max(0, Math.min(1, state.cyclePulse));
+
+    const b = state.barrier;
+    if (b) {
+      b.t += dt;
+      if (b.state === 'rising' && b.t >= 0.6) b.state = 'up';
+      if (b.state === 'shake') { b.shakeT += dt; if (b.shakeT > 0.5) b.state = 'up'; }
+    }
+
+    drawBackground();
+    drawSkyline();
+    drawRoad();
+    drawBarrier();
+    drawCycle();
+    drawParticles(dt);
+
+    raf = requestAnimationFrame(frame);
+  }
+
+  function start() {
+    resize();
+    if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); }
+  }
+  function stop() { if (raf) { cancelAnimationFrame(raf); raf = null; } }
+
+  return { start, stop, resize, riseBarrier, failBarrier, passBarrier, clearBarrier, setCruise, stop0, setMic, state };
+})();
+
+/* ================================================================= *
+ *  UI — screen switching, HUD, barrier card, callouts, toasts        *
+ * ================================================================= */
+const UI = (function () {
+  const screens = ['boot','unsupported','register','mic','countdown','results','leaderboard'];
+  function show(name) {
+    screens.forEach(s => el('screen-' + s).classList.toggle('active', s === name));
+  }
+  function hud(on) { el('hud').classList.toggle('active', !!on); }
+
+  function toast(msg, ms = 2600) {
+    const t = el('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.remove('show'), ms);
+  }
+  function offline(on) { el('offlineBanner').classList.toggle('show', !!on); }
+
+  function callout(text, kind) {
+    const c = document.createElement('div');
+    c.className = 'callout ' + kind;
+    c.textContent = text;
+    el('callouts').appendChild(c);
+    setTimeout(() => c.remove(), 1200);
+  }
+
+  /* ---- HUD updates ---- */
+  function fmtTime(ms) {
+    ms = Math.max(0, ms);
+    const cs = Math.floor((ms % 1000) / 10);
+    const s = Math.floor(ms / 1000) % 60;
+    const m = Math.floor(ms / 60000);
+    const p = (n, w=2) => String(n).padStart(w, '0');
+    return { m, s, cs, mm: p(m), ss: p(s), cc: p(cs) };
+  }
+  function setTimer(ms) {
+    const t = fmtTime(ms);
+    el('hudTimer').innerHTML = `${t.mm}:${t.ss}<small>.${t.cc}</small>`;
+  }
+  function setStage(i, total) { el('hudStage').textContent = `${String(i).padStart(2,'0')}/${String(total).padStart(2,'0')}`; }
+  function setChips(langs, currentIdx, passedSet) {
+    const box = el('hudChips'); box.innerHTML = '';
+    langs.forEach((lc, i) => {
+      const c = document.createElement('span');
+      c.className = 'chip' + (i === currentIdx ? ' current' : (passedSet.has(i) ? ' done' : ''));
+      c.textContent = (LANGS[lc] ? LANGS[lc].name : lc).slice(0, 3).toUpperCase();
+      box.appendChild(c);
+    });
+  }
+  function setPenalty(ms) { el('hudPenalty').textContent = ms > 0 ? `PENALTY +${Math.round(ms/1000)}s` : ''; }
+  function setCombo(n) { el('hudCombo').textContent = n >= 2 ? `COMBO x${n}` : ''; }
+
+  /* ---- barrier card ---- */
+  function renderBarrierCard(phrase) {
+    const L = LANGS[phrase.lang];
+    const flag = Flags.svg(L.flag);
+    const dir = L.dir;
+    const roman = phrase.romanization ? `<div class="roman">${escapeHtml(phrase.romanization)}</div>` : '';
+    el('bcardInner').className = 'bcard';
+    el('bcardInner').innerHTML = `
+      <div class="head">
+        <span class="flag">${flag}</span>
+        <span class="langname">${escapeHtml(L.name)}</span>
+      </div>
+      <div class="native" dir="${dir}">${escapeHtml(phrase.text)}</div>
+      ${roman}
+      <div class="ipa">${escapeHtml(phrase.ipa || '')}</div>
+      <div class="result" id="bcResult"></div>
+      <div class="heard" id="bcHeard"></div>
+    `;
+    el('barrierCard').classList.add('show');
+    el('dock').classList.add('show');
+  }
+  function hideBarrierCard() {
+    el('barrierCard').classList.remove('show');
+    el('dock').classList.remove('show');
+  }
+  function setInterim(text) { const h = el('bcHeard'); if (h) h.textContent = text || ''; }
+  function showResult(scoreVal, passed, heard) {
+    const r = el('bcResult'); if (!r) return;
+    const pct = Math.round(scoreVal * 100);
+    r.innerHTML = `<span class="sync-pct ${passed ? 'pass' : 'fail'}">SYNC ${pct}%</span> ${passed ? '· PASS' : '· TRY AGAIN'}`;
+    const h = el('bcHeard'); if (h && heard != null) h.textContent = heard ? `heard: ${heard}` : 'heard: —';
+    el('bcardInner').classList.remove('pass','fail');
+    el('bcardInner').classList.add(passed ? 'pass' : 'fail');
+  }
+  function setSyncRing(v) {
+    const C = 2 * Math.PI * 54; // 339.29
+    el('syncRing').style.strokeDashoffset = String(C * (1 - Math.max(0, Math.min(1, v))));
+  }
+  function speakListening(on) {
+    el('speakBtn').classList.toggle('listening', !!on);
+    el('speakBtn').firstChild && (el('speakBtn').childNodes[0].nodeValue = on ? 'LISTEN' : 'SPEAK');
+  }
+  function showSkip(on) { el('skipBtn').classList.toggle('hidden', !on); }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  }
+
+  return {
+    show, hud, toast, offline, callout, setTimer, setStage, setChips, setPenalty, setCombo,
+    renderBarrierCard, hideBarrierCard, setInterim, showResult, setSyncRing, speakListening, showSkip,
+    fmtTime, escapeHtml
+  };
+})();
+
+/* ================================================================= *
+ *  ELIGIBILITY & POOL — hint-audio check + language selection       *
+ *  (design §5, R3)                                                  *
+ * ================================================================= */
+const Eligibility = (function () {
+  // eligible if bundled MP3 for ≥1 phrase OR a matching speechSynthesis voice
+  async function langEligible(code) {
+    const L = LANGS[code];
+    if (!L) return false;
+    if (Audio2.hasVoice(L.tts)) return true;
+    if (CONFIG.useBundledAudio) {
+      const phrases = PHRASES.phrases.filter(p => p.lang === code);
+      for (const p of phrases) {
+        if (await Audio2.mp3Exists(p.id)) return true;
+      }
+    }
+    return false;
+  }
+
+  // Build the run's language list: en first, then 9 random eligible from pool,
+  // backfilled from backupLanguages. Returns {langs, substituted[]}
+  async function buildPool() {
+    const substituted = [];
+    const eligiblePool = [];
+    for (const code of CONFIG.pool) {
+      if (await langEligible(code)) eligiblePool.push(code);
+    }
+    // shuffle
+    const shuffled = eligiblePool.slice();
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const need = CONFIG.stages - 1;
+    let chosen = shuffled.slice(0, need);
+
+    // backfill from backups if short
+    if (chosen.length < need) {
+      const backups = CONFIG.backupLanguages.slice();
+      for (let i = backups.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [backups[i], backups[j]] = [backups[j], backups[i]];
+      }
+      for (const code of backups) {
+        if (chosen.length >= need) break;
+        if (chosen.includes(code)) continue;
+        if (await langEligible(code)) { chosen.push(code); substituted.push(code); }
+      }
+    }
+    return { langs: [CONFIG.firstLanguage, ...chosen], substituted, eligibleCount: eligiblePool.length };
+  }
+
+  function randomPhrase(code) {
+    const bank = PHRASES.phrases.filter(p => p.lang === code);
+    return bank[Math.floor(Math.random() * bank.length)];
+  }
+
+  return { langEligible, buildPool, randomPhrase };
+})();
+
+/* ================================================================= *
+ *  GAME — state machine (design §2, R8/R9/R12)                      *
+ * ================================================================= */
+const Game = (function () {
+  let player = null;
+  let langs = [];              // order played
+  let stageIdx = 0;
+  let run = null;              // Run record
+  let usedLangs = new Set();   // for swap selection
+
+  // timing
+  let timerStart = 0, elapsedMs = 0, penaltyMs = 0, bonusMs = 0;
+  let timerRAF = null, timerRunning = false;
+
+  // per-stage
+  let cur = null;              // {lang, phrase, attempts, hints, perfect, passed, skipped, attemptLog, bestSim, stageStart}
+  let combo = 0, maxCombo = 0, totalHints = 0, totalSkips = 0, totalPerfects = 0;
+  let listening = false, hintBusy = false;
+  const passedSet = new Set();
+
+  function setPlayer(p) { player = p; }
+
+  function newRun() {
+    run = {
+      id: 'run-' + Date.now() + '-' + Math.floor(Math.random()*1e6),
+      createdAt: Date.now(),
+      player: { name: player.name, age: player.age, gender: player.gender },
+      finalTimeMs: 0, elapsedMs: 0, penaltyMs: 0, bonusMs: 0,
+      hints: 0, skips: 0, perfects: 0, maxCombo: 0,
+      languages: [], swaps: [], stages: [],
+      userAgent: navigator.userAgent
+    };
+    stageIdx = 0; elapsedMs = 0; penaltyMs = 0; bonusMs = 0;
+    combo = 0; maxCombo = 0; totalHints = 0; totalSkips = 0; totalPerfects = 0;
+    usedLangs = new Set(langs);
+    passedSet.clear();
+  }
+
+  /* ---- master timer (rAF) ---- */
+  function startTimer() {
+    if (timerRunning) return;
+    timerRunning = true;
+    timerStart = performance.now() - elapsedMs;
+    const tick = () => {
+      if (!timerRunning) return;
+      elapsedMs = performance.now() - timerStart;
+      UI.setTimer(elapsedMs + penaltyMs - bonusMs);
+      timerRAF = requestAnimationFrame(tick);
+    };
+    timerRAF = requestAnimationFrame(tick);
+  }
+  function stopTimer() {
+    timerRunning = false;
+    if (timerRAF) cancelAnimationFrame(timerRAF);
+    elapsedMs = performance.now() - timerStart;
+  }
+
+  /* ---- mic-driven visual + sync ring while listening ---- */
+  function micLoop() {
+    if (!listening) return;
+    const lvl = Speech.level();
+    Renderer.setMic(lvl);
+    requestAnimationFrame(micLoop);
+  }
+
+  /* ---- begin a run ---- */
+  async function begin(poolResult) {
+    langs = poolResult.langs;
+    newRun();
+    run.languages = langs.slice();
+    if (poolResult.substituted && poolResult.substituted.length) {
+      poolResult.substituted.forEach(code => run.swaps.push({ from: '(backup-fill)', to: code, reason: 'insufficient-eligible' }));
+    }
+    UI.show('countdown');
+    UI.hud(false);
+    await countdown();
+    UI.show(null);
+    UI.hud(true);
+    startStage();
+  }
+
+  function countdown() {
+    return new Promise((resolve) => {
+      let n = CONFIG.countdownFrom;
+      const cd = el('countdown');
+      const step = () => {
+        if (n <= 0) { cd.textContent = 'GO'; Audio2.SFX.boost(); setTimeout(resolve, 500); return; }
+        cd.textContent = String(n);
+        cd.style.animation = 'none'; void cd.offsetWidth; cd.style.animation = '';
+        Audio2.SFX.listen();
+        n--; setTimeout(step, 800);
+      };
+      step();
+    });
+  }
+
+  /* ---- stage lifecycle ---- */
+  function startStage() {
+    const lang = langs[stageIdx];
+    const phrase = Eligibility.randomPhrase(lang);
+    cur = {
+      lang, phrase, attempts: 0, hints: 0, perfect: false,
+      passed: false, skipped: false, attemptLog: [], bestSim: 0,
+      stageStart: performance.now()
+    };
+    UI.setStage(stageIdx + 1, CONFIG.stages);
+    UI.setChips(langs, stageIdx, passedSet);
+    UI.setPenalty(penaltyMs);
+    UI.setCombo(combo);
+    UI.showSkip(false);
+    UI.setSyncRing(0);
+
+    Renderer.riseBarrier();
+    Audio2.SFX.rise();
+    // start timer on FIRST barrier (R9.1)
+    if (stageIdx === 0) startTimer();
+
+    setTimeout(() => {
+      UI.renderBarrierCard(phrase);
+    }, 550);
+  }
+
+  /* ---- speaking ---- */
+  async function doSpeak() {
+    if (listening || hintBusy || !cur) return;
+    if (Audio2.isHintPlaying()) return; // R5.4 never listen during hint
+    listening = true;
+    UI.speakListening(true);
+    UI.setInterim('');
+    Audio2.SFX.listen();
+    micLoop();
+
+    const res = await Speech.listen(cur.lang, {
+      onInterim: (txt) => { UI.setInterim(txt); }
+    });
+
+    listening = false;
+    UI.speakListening(false);
+    Renderer.setMic(0);
+
+    // error handling (design §7, §10)
+    if (res.error === 'not-allowed' || res.error === 'service-not-allowed') {
+      UI.toast('Microphone blocked — check permissions');
+      goMicCheck();
+      return;
+    }
+    if (res.error === 'network') {
+      UI.offline(true);
+      UI.toast('Network error — recognition needs internet. Try again.');
+      return; // allow retry, timer continues
+    }
+    if (res.error === 'language-not-supported') {
+      swapLanguage();
+      return;
+    }
+    UI.offline(false);
+
+    const heard = (res.alternatives[0] && res.alternatives[0].transcript) || '';
+    const scoreVal = Scorer.score(res.alternatives, cur.phrase, cur.lang);
+    cur.attempts++;
+    cur.bestSim = Math.max(cur.bestSim, scoreVal);
+    cur.attemptLog.push({ heard, similarity: scoreVal, t: Date.now() });
+
+    UI.setSyncRing(scoreVal);
+    const passed = Scorer.passes(scoreVal, cur.lang);
+    UI.showResult(scoreVal, passed, heard || '(nothing heard)');
+
+    if (passed) {
+      onPass(scoreVal);
+    } else {
+      Audio2.SFX.fail();
+      Renderer.failBarrier();
+      if (cur.attempts >= CONFIG.skipAfterFails) UI.showSkip(true);
+      if (!heard) UI.toast("Didn't catch that");
+    }
+  }
+
+  function onPass(scoreVal) {
+    cur.passed = true;
+    const firstTry = (cur.attempts === 1 && cur.hints === 0);
+    if (firstTry) { combo++; maxCombo = Math.max(maxCombo, combo); }
+    else combo = 0;
+    UI.setCombo(combo);
+    if (combo >= 2) UI.callout('COMBO x' + combo, 'combo');
+
+    if (Scorer.isPerfect(scoreVal)) {
+      cur.perfect = true; totalPerfects++;
+      bonusMs += CONFIG.perfectBonusMs;
+      UI.callout('PERFECT', 'perfect');
+      UI.callout('-' + (CONFIG.perfectBonusMs/1000) + 's', 'bonus');
+      Audio2.SFX.perfect();
+    } else {
+      Audio2.SFX.pass();
+    }
+    Renderer.passBarrier();
+    passedSet.add(stageIdx);
+    recordStage();
+
+    setTimeout(() => {
+      UI.hideBarrierCard();
+      Renderer.clearBarrier();
+      stageIdx++;
+      if (stageIdx >= CONFIG.stages) finish();
+      else startStage();
+    }, 950);
+  }
+
+  function recordStage() {
+    run.stages.push({
+      index: stageIdx,
+      lang: cur.lang,
+      phraseId: cur.phrase.id,
+      target: cur.phrase.text,
+      heard: (cur.attemptLog[cur.attemptLog.length - 1] || {}).heard || '',
+      similarity: +cur.bestSim.toFixed(4),
+      threshold: Scorer.threshold(cur.lang),
+      attempts: cur.attempts,
+      hints: cur.hints,
+      passed: cur.passed,
+      skipped: cur.skipped,
+      perfect: cur.perfect,
+      stageMs: Math.round(performance.now() - cur.stageStart),
+      attemptLog: cur.attemptLog
+    });
+  }
+
+  /* ---- hint (R7) ---- */
+  async function doHint() {
+    if (!cur || listening || hintBusy) return;
+    hintBusy = true;
+    el('hintBtn').disabled = true;
+    penaltyMs += CONFIG.hintPenaltyMs;
+    cur.hints++; totalHints++;
+    UI.setPenalty(penaltyMs);
+    UI.callout('+' + (CONFIG.hintPenaltyMs/1000) + 's', 'penalty');
+    Audio2.SFX.hint();
+
+    const r = await Audio2.playHint(cur.phrase);
+    if (!r.ok) {
+      // no audio available → refund, toast (design §10)
+      penaltyMs -= CONFIG.hintPenaltyMs;
+      cur.hints--; totalHints--;
+      UI.setPenalty(penaltyMs);
+      UI.toast('No hint audio available for this language');
+    }
+    hintBusy = false;
+    el('hintBtn').disabled = false;
+  }
+
+  /* ---- skip (R8.2) ---- */
+  function doSkip() {
+    if (!cur || cur.attempts < CONFIG.skipAfterFails) return;
+    cur.skipped = true; cur.passed = false;
+    totalSkips++;
+    penaltyMs += CONFIG.skipPenaltyMs;
+    UI.setPenalty(penaltyMs);
+    UI.callout('+' + (CONFIG.skipPenaltyMs/1000) + 's', 'penalty');
+    combo = 0; UI.setCombo(combo);
+    recordStage();
+    Renderer.passBarrier(); // shatter visual on skip too
+    UI.showResult(cur.bestSim, false, 'skipped');
+    setTimeout(() => {
+      UI.hideBarrierCard();
+      Renderer.clearBarrier();
+      stageIdx++;
+      if (stageIdx >= CONFIG.stages) finish();
+      else startStage();
+    }, 700);
+  }
+
+  /* ---- language swap on unsupported (R3.5) ---- */
+  function swapLanguage() {
+    const from = cur.lang;
+    // find an unused eligible replacement not already in the run
+    const candidates = [...CONFIG.pool, ...CONFIG.backupLanguages]
+      .filter(c => !langs.includes(c) && !usedLangs.has(c));
+    // best-effort: pick one with a voice
+    let repl = candidates.find(c => Audio2.hasVoice(LANGS[c] ? LANGS[c].tts : c)) || candidates[0];
+    if (!repl) { // nothing to swap to; count as attempt and let player retry
+      UI.toast('Language not supported here — please retry');
+      return;
+    }
+    run.swaps.push({ from, to: repl, reason: 'language-not-supported' });
+    usedLangs.add(repl);
+    langs[stageIdx] = repl;
+    cur.lang = repl;
+    cur.phrase = Eligibility.randomPhrase(repl);
+    UI.toast(`${LANGS[from].name} unsupported — swapped to ${LANGS[repl].name}`);
+    UI.setChips(langs, stageIdx, passedSet);
+    UI.renderBarrierCard(cur.phrase);
+  }
+
+  /* ---- finish (R9.2) ---- */
+  function finish() {
+    stopTimer();
+    Renderer.setCruise();
+    Audio2.SFX.finish();
+    run.elapsedMs = Math.round(elapsedMs);
+    run.penaltyMs = penaltyMs;
+    run.bonusMs = bonusMs;
+    run.finalTimeMs = Math.max(0, Math.round(elapsedMs + penaltyMs - bonusMs));
+    run.hints = totalHints;
+    run.skips = totalSkips;
+    run.perfects = totalPerfects;
+    run.maxCombo = maxCombo;
+    Store.save(run);
+    UI.hud(false);
+    Results.render(run);
+    UI.show('results');
+  }
+
+  /* ---- input wiring ---- */
+  function wire() {
+    el('speakBtn').addEventListener('click', () => { Audio2.unlock(); doSpeak(); });
+    el('hintBtn').addEventListener('click', () => { Audio2.unlock(); doHint(); });
+    el('skipBtn').addEventListener('click', doSkip);
+    window.addEventListener('keydown', (e) => {
+      if (!el('hud').classList.contains('active')) return;
+      if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
+      if (e.code === 'Space') { e.preventDefault(); Audio2.unlock(); doSpeak(); }
+      else if (e.key === 'h' || e.key === 'H') { e.preventDefault(); Audio2.unlock(); doHint(); }
+      else if (e.key === 's' || e.key === 'S') { if (!el('skipBtn').classList.contains('hidden')) doSkip(); }
+    });
+    window.addEventListener('online',  () => UI.offline(false));
+    window.addEventListener('offline', () => UI.offline(true));
+  }
+
+  return { setPlayer, begin, wire, get run() { return run; } };
+})();
+
+/* ================================================================= *
+ *  RESULTS + LEADERBOARD (R10)                                      *
+ * ================================================================= */
+const Results = (function () {
+  function render(run) {
+    const t = UI.fmtTime(run.finalTimeMs);
+    el('resFinal').textContent = `${t.mm}:${t.ss}.${t.cc}`;
+    const rank = Store.rankOf(run.id);
+    el('resStats').innerHTML = `
+      <div class="stat"><b>${rank ? '#' + rank : '—'}</b><span>Rank</span></div>
+      <div class="stat"><b>${run.hints}</b><span>Hints</span></div>
+      <div class="stat"><b>${run.skips}</b><span>Skips</span></div>
+      <div class="stat"><b>${run.perfects}</b><span>Perfects</span></div>
+      <div class="stat"><b>x${run.maxCombo}</b><span>Max combo</span></div>
+    `;
+    const rows = run.stages.map(st => {
+      const L = LANGS[st.lang] || { name: st.lang, flag: '' };
+      const pct = Math.round(st.similarity * 100);
+      const status = st.skipped ? 'SKIP' : (st.passed ? 'PASS' : 'FAIL');
+      return `<tr class="${st.skipped ? 'skip' : ''}">
+        <td>${st.index + 1}</td>
+        <td><span class="mini-flag">${Flags.svg(L.flag)}</span> ${UI.escapeHtml(L.name)}</td>
+        <td class="native">${UI.escapeHtml(st.target)}</td>
+        <td class="native">${UI.escapeHtml(st.heard || '—')}</td>
+        <td>${pct}%</td>
+        <td>${st.attempts}${st.perfect ? ' ★' : ''}</td>
+        <td>${status}</td>
+      </tr>`;
+    }).join('');
+    el('resTable').innerHTML =
+      `<thead><tr><th>#</th><th>Language</th><th class="native">Phrase</th><th class="native">Heard</th><th>SYNC</th><th>Att.</th><th>Result</th></tr></thead>
+       <tbody>${rows}</tbody>`;
+    renderLeaderboard(run.id);
+  }
+
+  function renderLeaderboard(currentId) {
+    const top = Store.leaderboard(10);
+    const rows = top.map((r, i) => {
+      const t = UI.fmtTime(r.finalTimeMs);
+      return `<tr class="${r.id === currentId ? 'me' : ''}">
+        <td class="rank-badge">${i + 1}</td>
+        <td>${UI.escapeHtml(r.player.name)}</td>
+        <td>${t.mm}:${t.ss}.${t.cc}</td>
+        <td>${r.hints}</td>
+        <td>${r.skips}</td>
+        <td>x${r.maxCombo}</td>
+      </tr>`;
+    }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--text-dim)">No runs yet</td></tr>`;
+    el('lbTable').innerHTML =
+      `<thead><tr><th>Rank</th><th>Name</th><th>Time</th><th>Hints</th><th>Skips</th><th>Combo</th></tr></thead>
+       <tbody>${rows}</tbody>`;
+  }
+
+  return { render, renderLeaderboard };
+})();
+
+/* ================================================================= *
+ *  APP — bootstrap, BOOT preflight, Registration, Mic check         *
+ * ================================================================= */
+let POOL_RESULT = null;   // cached pool built at boot
+let PLAYER = null;
+
+function bootItem(id, label) {
+  const li = document.createElement('li');
+  li.id = 'boot-' + id;
+  li.innerHTML = `<span class="dot"></span> ${label} <span class="sub"></span>`;
+  el('bootList').appendChild(li);
+  return li;
+}
+function bootSet(id, cls, sub) {
+  const li = el('boot-' + id);
+  if (!li) return;
+  li.className = cls;
+  li.querySelector('.sub').textContent = sub || '';
+}
+
+async function runBoot() {
+  UI.show('boot');
+  const li = {};
+  bootItem('sr', 'Speech recognition support');
+  bootItem('https', 'Secure context (HTTPS / localhost)');
+  bootItem('voices', 'Loading speech voices');
+  bootItem('pool', 'Building language pool');
+
+  // 1. SpeechRecognition support (R2.1)
+  if (!Speech.supported()) {
+    bootSet('sr', 'bad', 'not found');
+    UI.show('unsupported');
+    return;
+  }
+  bootSet('sr', 'ok', 'ready');
+
+  // 2. Secure context (R2.2)
+  const secure = window.isSecureContext ||
+    ['localhost', '127.0.0.1', ''].includes(location.hostname) ||
+    location.protocol === 'file:';
+  if (!secure) {
+    bootSet('https', 'bad', 'insecure — mic may be blocked');
+    UI.toast('Serve over HTTPS or localhost for the microphone to work.');
+  } else if (location.protocol === 'file:') {
+    bootSet('https', 'working', 'file:// — mic may be blocked, use localhost');
+  } else {
+    bootSet('https', 'ok', location.protocol.replace(':',''));
+  }
+
+  // 3. Voices (R3.3, design §5)
+  bootSet('voices', 'working', '…');
+  await Audio2.voicesReady();
+  Audio2.refreshVoices();
+  bootSet('voices', 'ok', 'loaded');
+
+  // 4. Build pool with backup fill (R3.2–3.4)
+  bootSet('pool', 'working', '…');
+  POOL_RESULT = await Eligibility.buildPool();
+  const names = POOL_RESULT.langs.map(c => (LANGS[c] ? LANGS[c].name : c));
+  bootSet('pool', 'ok', `${POOL_RESULT.langs.length} langs`);
+  if (POOL_RESULT.substituted.length) {
+    UI.toast('Backup languages used: ' + POOL_RESULT.substituted.map(c => LANGS[c].name).join(', '));
+  }
+  console.log('[LINGUA//GRID] pool:', names.join(' → '),
+              'substituted:', POOL_RESULT.substituted, 'eligible:', POOL_RESULT.eligibleCount);
+
+  el('bootContinue').disabled = false;
+  el('bootContinue').onclick = () => { Audio2.unlock(); UI.show('register'); };
+
+  // start the highway behind everything
+  Renderer.start();
+}
+
+/* ---- Registration (R1, R14) ---- */
+function sanitizeName(s) {
+  // strip HTML tags + decode-safe: keep plain text only (R1.4)
+  const tmp = document.createElement('div');
+  tmp.textContent = String(s);
+  return tmp.textContent.replace(/[<>]/g, '').trim();
+}
+function wireRegister() {
+  const setInvalid = (fieldId, bad) => el(fieldId).classList.toggle('invalid', bad);
+
+  el('regStart').addEventListener('click', () => {
+    const rawName = el('in-name').value;
+    const name = sanitizeName(rawName);
+    const ageVal = el('in-age').value;
+    const age = parseInt(ageVal, 10);
+    const gender = el('in-gender').value;
+    const consent = el('in-consent').checked;
+
+    const nameOk = name.length >= 1 && name.length <= 20;
+    const ageOk = Number.isInteger(age) && age >= 5 && age <= 99;
+    const genderOk = ['Male','Female','Prefer not to say'].includes(gender);
+
+    setInvalid('f-name', !nameOk);
+    setInvalid('f-age', !ageOk);
+    setInvalid('f-gender', !genderOk);
+    setInvalid('f-consent', !consent);
+
+    if (!(nameOk && ageOk && genderOk && consent)) {
+      UI.toast('Please complete the highlighted fields.');
+      return;
+    }
+    PLAYER = { name, age, gender };
+    Game.setPlayer(PLAYER);
+    goMicCheck();
+  });
+
+  // live clear of invalid state
+  ['in-name','in-age','in-gender','in-consent'].forEach(id => {
+    el(id).addEventListener('input', () => {
+      const f = 'f-' + id.replace('in-','');
+      el(f) && el(f).classList.remove('invalid');
+    });
+  });
+}
+
+/* ---- Mic check (R2.3–2.5) ---- */
+const MicCheck = (function () {
+  let raf = null, listening = false, active = false;
+
+  function setLine(id, cls, sub) {
+    const li = el(id);
+    li.className = cls;
+    li.querySelector('.sub').textContent = sub || '';
+  }
+
+  async function enter() {
+    active = true;
+    UI.show('mic');
+    el('micDenied').classList.add('hidden');
+    setLine('mic-perm', '', '');
+    setLine('mic-ready', '', '');
+    el('micStart').disabled = true;
+    el('micInterim').textContent = '';
+    await requestMic();
+  }
+
+  async function requestMic() {
+    try {
+      setLine('mic-perm', 'working', 'requesting…');
+      await Speech.initMic();
+      setLine('mic-perm', 'ok', 'granted');
+      el('micDenied').classList.add('hidden');
+      meter();
+      readyTest();
+    } catch (e) {
+      setLine('mic-perm', 'bad', 'denied');
+      el('micDenied').classList.remove('hidden');
+      el('micMsg').innerHTML = 'Microphone access is required to play.';
+    }
+  }
+
+  function meter() {
+    const loop = () => {
+      if (!active) return;
+      const lvl = Speech.level();
+      el('micBar').style.width = Math.round(lvl * 100) + '%';
+      raf = requestAnimationFrame(loop);
+    };
+    loop();
+  }
+
+  async function readyTest() {
+    if (listening) return;
+    setLine('mic-ready', 'working', 'say "ready"…');
+    listening = true;
+    // loop until we hear something resembling "ready" or user proceeds
+    const attempt = async () => {
+      if (!active) { listening = false; return; }
+      const res = await Speech.listenOnce('en-US', {
+        onInterim: (txt) => { el('micInterim').textContent = txt; }
+      });
+      if (!active) { listening = false; return; }
+      if (res.error === 'not-allowed' || res.error === 'service-not-allowed') {
+        setLine('mic-perm', 'bad', 'denied');
+        el('micDenied').classList.remove('hidden');
+        listening = false; return;
+      }
+      if (res.error === 'network') {
+        UI.offline(true);
+        setLine('mic-ready', 'bad', 'needs internet');
+        UI.toast('Recognition needs an internet connection.');
+        listening = false; return;
+      }
+      UI.offline(false);
+      const heard = (res.alternatives[0] && res.alternatives[0].transcript || '').toLowerCase();
+      const ok = /read(y|ies)?| redi|steady|ready/.test(heard) ||
+                 Scorer.sim(Scorer.normalize(heard,'en'), 'ready') >= 0.6;
+      if (ok) {
+        setLine('mic-ready', 'ok', `heard "${heard.trim() || 'ready'}"`);
+        el('micStart').disabled = false;
+        Audio2.SFX.pass();
+        listening = false;
+      } else {
+        el('micInterim').textContent = heard ? `heard: ${heard}` : 'Didn\'t catch that — say "ready"';
+        setTimeout(attempt, 300); // keep listening
+      }
+    };
+    attempt();
+  }
+
+  function leave() { active = false; listening = false; if (raf) cancelAnimationFrame(raf); }
+
+  function wire() {
+    el('micRetry').addEventListener('click', () => { leave(); enter(); });
+    el('micStart').addEventListener('click', () => {
+      leave();
+      Game.begin(POOL_RESULT);
+    });
+  }
+  return { enter, leave, wire };
+})();
+
+function goMicCheck() { MicCheck.enter(); }
+
+/* ---- results / leaderboard buttons ---- */
+function wireResults() {
+  const playAgain = () => {
+    // same player, rebuild pool for variety
+    Eligibility.buildPool().then(pr => { POOL_RESULT = pr; Game.begin(pr); });
+  };
+  const newPlayer = () => {
+    PLAYER = null;
+    el('in-name').value = ''; el('in-age').value = ''; el('in-gender').value = ''; el('in-consent').checked = false;
+    UI.show('register');
+  };
+  el('btnPlayAgain').addEventListener('click', playAgain);
+  el('btnNewPlayer').addEventListener('click', newPlayer);
+  el('btnLeaderboard').addEventListener('click', () => { Results.renderLeaderboard(Game.run ? Game.run.id : null); UI.show('leaderboard'); });
+  el('lbBack').addEventListener('click', () => UI.show('results'));
+  el('lbPlayAgain').addEventListener('click', playAgain);
+  el('lbNewPlayer').addEventListener('click', newPlayer);
+}
+
+/* ---- init ---- */
+window.addEventListener('DOMContentLoaded', () => {
+  Admin.wire();
+  wireRegister();
+  MicCheck.wire();
+  Game.wire();
+  wireResults();
+  Store.flushWebhook();           // retry any queued runs (R11.3)
+  Renderer.resize();
+  if (!navigator.onLine) UI.offline(true);
+  runBoot();
+});
+</script>
+</body>
+</html>

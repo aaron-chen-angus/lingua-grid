@@ -1,0 +1,398 @@
+{
+  "_note": "Seed bank. IPA is broad transcription; have native speakers verify before public use. Add phrases freely: short (1-5 words), common, unambiguous.",
+  "voices": {
+    "en": "en-US-JennyNeural",
+    "zh": "zh-CN-XiaoxiaoNeural",
+    "ta": "ta-IN-PallaviNeural",
+    "hi": "hi-IN-SwaraNeural",
+    "ms": "ms-MY-YasminNeural",
+    "id": "id-ID-GadisNeural",
+    "th": "th-TH-PremwadeeNeural",
+    "my": "my-MM-NilarNeural",
+    "vi": "vi-VN-HoaiMyNeural",
+    "fr": "fr-FR-DeniseNeural",
+    "de": "de-DE-KatjaNeural",
+    "es": "es-ES-ElviraNeural",
+    "he": "he-IL-HilaNeural",
+    "ar": "ar-SA-ZariyahNeural",
+    "ru": "ru-RU-SvetlanaNeural"
+  },
+  "phrases": [
+    {
+      "id": "en-01",
+      "lang": "en",
+      "text": "Good morning, how are you?",
+      "romanization": "",
+      "ipa": "/ɡʊd ˈmɔːnɪŋ haʊ ɑː juː/",
+      "accept": []
+    },
+    {
+      "id": "en-02",
+      "lang": "en",
+      "text": "Thank you very much",
+      "romanization": "",
+      "ipa": "/ˈθæŋk juː ˈvɛri mʌtʃ/",
+      "accept": []
+    },
+    {
+      "id": "en-03",
+      "lang": "en",
+      "text": "Nice to meet you",
+      "romanization": "",
+      "ipa": "/naɪs tə miːt juː/",
+      "accept": []
+    },
+    {
+      "id": "zh-01",
+      "lang": "zh",
+      "text": "你好吗",
+      "romanization": "nǐ hǎo ma",
+      "ipa": "/ni˧˥ xaʊ˨˩˦ ma/",
+      "accept": []
+    },
+    {
+      "id": "zh-02",
+      "lang": "zh",
+      "text": "谢谢你",
+      "romanization": "xièxie nǐ",
+      "ipa": "/ɕjɛ˥˩ ɕjɛ ni˨˩˦/",
+      "accept": []
+    },
+    {
+      "id": "zh-03",
+      "lang": "zh",
+      "text": "早上好",
+      "romanization": "zǎoshang hǎo",
+      "ipa": "/tsaʊ˨˩ ʂɑŋ xaʊ˨˩˦/",
+      "accept": []
+    },
+    {
+      "id": "ta-01",
+      "lang": "ta",
+      "text": "வணக்கம்",
+      "romanization": "vaṇakkam",
+      "ipa": "/ʋaɳakkam/",
+      "accept": []
+    },
+    {
+      "id": "ta-02",
+      "lang": "ta",
+      "text": "நன்றி",
+      "romanization": "naṉṟi",
+      "ipa": "/n̪anri/",
+      "accept": []
+    },
+    {
+      "id": "ta-03",
+      "lang": "ta",
+      "text": "காலை வணக்கம்",
+      "romanization": "kālai vaṇakkam",
+      "ipa": "/kaːlai ʋaɳakkam/",
+      "accept": []
+    },
+    {
+      "id": "hi-01",
+      "lang": "hi",
+      "text": "नमस्ते",
+      "romanization": "namaste",
+      "ipa": "/nəməsteː/",
+      "accept": []
+    },
+    {
+      "id": "hi-02",
+      "lang": "hi",
+      "text": "धन्यवाद",
+      "romanization": "dhanyavād",
+      "ipa": "/d̪ʱənjəʋaːd̪/",
+      "accept": []
+    },
+    {
+      "id": "hi-03",
+      "lang": "hi",
+      "text": "आप कैसे हैं",
+      "romanization": "āp kaise haiṁ",
+      "ipa": "/aːp kɛːseː hɛ̃ː/",
+      "accept": []
+    },
+    {
+      "id": "ms-01",
+      "lang": "ms",
+      "text": "Selamat pagi",
+      "romanization": "",
+      "ipa": "/səlamat paɡi/",
+      "accept": []
+    },
+    {
+      "id": "ms-02",
+      "lang": "ms",
+      "text": "Terima kasih",
+      "romanization": "",
+      "ipa": "/tərima kasih/",
+      "accept": []
+    },
+    {
+      "id": "ms-03",
+      "lang": "ms",
+      "text": "Apa khabar",
+      "romanization": "",
+      "ipa": "/apa xabar/",
+      "accept": [
+        "apa kabar"
+      ]
+    },
+    {
+      "id": "id-01",
+      "lang": "id",
+      "text": "Selamat siang",
+      "romanization": "",
+      "ipa": "/səlamat siaŋ/",
+      "accept": []
+    },
+    {
+      "id": "id-02",
+      "lang": "id",
+      "text": "Terima kasih banyak",
+      "romanization": "",
+      "ipa": "/tərima kasih baɲak/",
+      "accept": []
+    },
+    {
+      "id": "id-03",
+      "lang": "id",
+      "text": "Sampai jumpa lagi",
+      "romanization": "",
+      "ipa": "/sampai dʒumpa laɡi/",
+      "accept": []
+    },
+    {
+      "id": "th-01",
+      "lang": "th",
+      "text": "สวัสดี",
+      "romanization": "sawatdi",
+      "ipa": "/sà.wàt.diː/",
+      "accept": [
+        "สวัสดีครับ",
+        "สวัสดีค่ะ"
+      ]
+    },
+    {
+      "id": "th-02",
+      "lang": "th",
+      "text": "ขอบคุณ",
+      "romanization": "khop khun",
+      "ipa": "/kʰɔ̀ːp kʰun/",
+      "accept": [
+        "ขอบคุณครับ",
+        "ขอบคุณค่ะ"
+      ]
+    },
+    {
+      "id": "th-03",
+      "lang": "th",
+      "text": "ยินดีที่ได้รู้จัก",
+      "romanization": "yin di thi dai ru chak",
+      "ipa": "/jin diː tʰîː dâj rúː tɕàk/",
+      "accept": []
+    },
+    {
+      "id": "my-01",
+      "lang": "my",
+      "text": "မင်္ဂလာပါ",
+      "romanization": "mingalaba",
+      "ipa": "/mɪ̀ɴɡəlàbà/",
+      "accept": []
+    },
+    {
+      "id": "my-02",
+      "lang": "my",
+      "text": "ကျေးဇူးတင်ပါတယ်",
+      "romanization": "kyei zu tin ba de",
+      "ipa": "/tɕézú tɪ̀ɴ bà dɛ̀/",
+      "accept": []
+    },
+    {
+      "id": "my-03",
+      "lang": "my",
+      "text": "နေကောင်းလား",
+      "romanization": "nei kaung la",
+      "ipa": "/nè káʊɴ là/",
+      "accept": []
+    },
+    {
+      "id": "vi-01",
+      "lang": "vi",
+      "text": "Xin chào",
+      "romanization": "",
+      "ipa": "/sin˧ t͡ɕaːw˨˩/",
+      "accept": []
+    },
+    {
+      "id": "vi-02",
+      "lang": "vi",
+      "text": "Cảm ơn bạn",
+      "romanization": "",
+      "ipa": "/kaːm˧˩˧ ʔəːn˧ ɓaːn˧˨ʔ/",
+      "accept": []
+    },
+    {
+      "id": "vi-03",
+      "lang": "vi",
+      "text": "Hẹn gặp lại",
+      "romanization": "",
+      "ipa": "/hɛn˧˨ʔ ɣap˧˨ʔ laːj˧˨ʔ/",
+      "accept": []
+    },
+    {
+      "id": "fr-01",
+      "lang": "fr",
+      "text": "Bonjour, comment ça va ?",
+      "romanization": "",
+      "ipa": "/bɔ̃ʒuʁ kɔmɑ̃ sa va/",
+      "accept": []
+    },
+    {
+      "id": "fr-02",
+      "lang": "fr",
+      "text": "Merci beaucoup",
+      "romanization": "",
+      "ipa": "/mɛʁsi boku/",
+      "accept": []
+    },
+    {
+      "id": "fr-03",
+      "lang": "fr",
+      "text": "Enchanté",
+      "romanization": "",
+      "ipa": "/ɑ̃ʃɑ̃te/",
+      "accept": [
+        "enchantée"
+      ]
+    },
+    {
+      "id": "de-01",
+      "lang": "de",
+      "text": "Guten Morgen",
+      "romanization": "",
+      "ipa": "/ˈɡuːtn̩ ˈmɔʁɡn̩/",
+      "accept": []
+    },
+    {
+      "id": "de-02",
+      "lang": "de",
+      "text": "Vielen Dank",
+      "romanization": "",
+      "ipa": "/ˈfiːlən daŋk/",
+      "accept": []
+    },
+    {
+      "id": "de-03",
+      "lang": "de",
+      "text": "Wie geht es dir?",
+      "romanization": "",
+      "ipa": "/viː ɡeːt ɛs diːɐ̯/",
+      "accept": [
+        "wie geht's dir"
+      ]
+    },
+    {
+      "id": "es-01",
+      "lang": "es",
+      "text": "Buenos días",
+      "romanization": "",
+      "ipa": "/ˈbwenos ˈdias/",
+      "accept": []
+    },
+    {
+      "id": "es-02",
+      "lang": "es",
+      "text": "Muchas gracias",
+      "romanization": "",
+      "ipa": "/ˈmutʃas ˈɡɾaθjas/",
+      "accept": []
+    },
+    {
+      "id": "es-03",
+      "lang": "es",
+      "text": "¿Cómo estás?",
+      "romanization": "",
+      "ipa": "/ˈkomo esˈtas/",
+      "accept": []
+    },
+    {
+      "id": "he-01",
+      "lang": "he",
+      "text": "שלום",
+      "romanization": "shalom",
+      "ipa": "/ʃaˈlom/",
+      "accept": []
+    },
+    {
+      "id": "he-02",
+      "lang": "he",
+      "text": "תודה רבה",
+      "romanization": "toda raba",
+      "ipa": "/toˈda ʁaˈba/",
+      "accept": []
+    },
+    {
+      "id": "he-03",
+      "lang": "he",
+      "text": "בוקר טוב",
+      "romanization": "boker tov",
+      "ipa": "/ˈbokeʁ tov/",
+      "accept": []
+    },
+    {
+      "id": "ar-01",
+      "lang": "ar",
+      "text": "مرحبا",
+      "romanization": "marḥaban",
+      "ipa": "/marħaban/",
+      "accept": [
+        "مرحباً"
+      ]
+    },
+    {
+      "id": "ar-02",
+      "lang": "ar",
+      "text": "شكرا جزيلا",
+      "romanization": "shukran jazīlan",
+      "ipa": "/ʃukran dʒaziːlan/",
+      "accept": [
+        "شكراً جزيلاً"
+      ]
+    },
+    {
+      "id": "ar-03",
+      "lang": "ar",
+      "text": "صباح الخير",
+      "romanization": "ṣabāḥ al-khayr",
+      "ipa": "/sˤabaːħ al.xajr/",
+      "accept": []
+    },
+    {
+      "id": "ru-01",
+      "lang": "ru",
+      "text": "Здравствуйте",
+      "romanization": "zdravstvuyte",
+      "ipa": "/ˈzdrastvʊjtʲe/",
+      "accept": []
+    },
+    {
+      "id": "ru-02",
+      "lang": "ru",
+      "text": "Спасибо большое",
+      "romanization": "spasibo bolshoye",
+      "ipa": "/spɐˈsʲibə bɐlʲˈʂojə/",
+      "accept": []
+    },
+    {
+      "id": "ru-03",
+      "lang": "ru",
+      "text": "Приятно познакомиться",
+      "romanization": "priyatno poznakomitsya",
+      "ipa": "/prʲɪˈjatnə pəznɐˈkomʲɪt͡sə/",
+      "accept": []
+    }
+  ]
+}
