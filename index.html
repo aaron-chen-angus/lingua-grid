@@ -165,6 +165,44 @@ input:focus, select:focus { border-color: var(--grid-cyan); box-shadow: var(--gl
 .row { display: flex; gap: 16px; flex-wrap: wrap; }
 .row > .field { flex: 1 1 140px; }
 
+/* Difficulty segmented control */
+.seg { display: flex; gap: 8px; flex-wrap: wrap; }
+.seg .opt {
+  flex: 1 1 120px;
+  border: 1px solid var(--panel-line);
+  background: rgba(0,0,0,.4);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color .15s, box-shadow .15s, background .15s, transform .1s;
+  user-select: none;
+}
+.seg .opt:hover { transform: translateY(-1px); }
+.seg .opt .name { font-weight: 700; letter-spacing: 2px; font-size: 13px; }
+.seg .opt .blurb { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; margin-top: 3px; text-transform: uppercase; }
+.seg .opt.sel {
+  border-color: var(--grid-cyan);
+  box-shadow: var(--glow-cyan);
+  background: linear-gradient(180deg, rgba(0,229,255,.22), rgba(0,102,255,.1));
+}
+.seg .opt.sel .name { text-shadow: var(--glow-cyan); }
+.field.invalid .seg .opt { border-color: var(--orange); }
+
+/* difficulty chip on results/leaderboard */
+.level-tag {
+  display: inline-block; font-size: 11px; letter-spacing: 2px; font-weight: 700;
+  padding: 3px 10px; border-radius: 6px; border: 1px solid var(--grid-cyan);
+  color: var(--grid-cyan); box-shadow: var(--glow-cyan); text-transform: uppercase;
+}
+.lb-filter { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; flex-wrap: wrap; }
+.lb-filter .opt {
+  font-size: 11px; letter-spacing: 1.5px; padding: 6px 12px; border-radius: 6px;
+  border: 1px solid var(--panel-line); background: rgba(0,0,0,.3); cursor: pointer; color: var(--text-dim);
+  text-transform: uppercase; font-family: var(--ui);
+}
+.lb-filter .opt.sel { border-color: var(--grid-cyan); color: var(--grid-cyan); box-shadow: var(--glow-cyan); }
+
 .consent {
   display: flex; gap: 10px; align-items: flex-start;
   margin-top: 18px; font-size: 12px; color: var(--text-dim); line-height: 1.5;
@@ -438,6 +476,11 @@ a { color: var(--grid-cyan); }
           <div class="err">Please choose one.</div>
         </div>
       </div>
+      <div class="field" id="f-level">
+        <label>Difficulty</label>
+        <div class="seg" id="levelSeg" role="radiogroup" aria-label="Difficulty"></div>
+        <div class="err">Please choose a difficulty.</div>
+      </div>
       <div class="notice" id="pdpaNotice">
         <b>Data use notice (Singapore PDPA).</b>
         Your speech is processed by your browser's cloud speech service to score pronunciation.
@@ -501,6 +544,7 @@ a { color: var(--grid-cyan); }
   <section id="screen-leaderboard" class="screen">
     <div class="panel wide">
       <h2 class="title">Leaderboard // Top 10</h2>
+      <div class="lb-filter" id="lbFilter"></div>
       <div class="tbl-wrap"><table id="lbTable"></table></div>
       <div class="btn-row center">
         <button id="lbBack" class="ghost">Back to results</button>
@@ -584,6 +628,15 @@ a { color: var(--grid-cyan); }
 const CONFIG = {
   stages: 10,
   firstLanguage: 'en',
+  // Difficulty levels. `key` matches phrase.level; phrases with no `level` field are treated as 'medium'.
+  defaultLevel: 'medium',
+  levels: [
+    { key: 'easy',         label: 'EASY',         blurb: 'Single words' },
+    { key: 'medium',       label: 'MEDIUM',       blurb: 'Short phrases' },
+    { key: 'intermediate', label: 'INTERMEDIATE', blurb: 'Full everyday sentences' }
+  ],
+  // If a language has no phrase at the chosen level, fall back through this order.
+  levelFallback: { easy: ['easy','medium','intermediate'], medium: ['medium','easy','intermediate'], intermediate: ['intermediate','medium','easy'] },
   pool: ['zh','ta','hi','ms','id','th','my','vi','fr','de','es','he','ar','ru'],
   backupLanguages: ['ja','ko','it','pt','fil'],
   threshold: { default: 0.65, th: 0.55, my: 0.55, ta: 0.55 },
@@ -674,7 +727,84 @@ const PHRASES = {
     { "id": "pt-03", "lang": "pt", "text": "Como vai voc\u00EA?", "romanization": "", "ipa": "/\u02C8komu vaj vo\u02C8se/", "accept": [] },
     { "id": "fil-01", "lang": "fil", "text": "Magandang umaga", "romanization": "", "ipa": "/ma\u0261an\u02C8da\u014B u\u02C8ma\u0261a/", "accept": [] },
     { "id": "fil-02", "lang": "fil", "text": "Salamat po", "romanization": "", "ipa": "/sa\u02C8lamat po/", "accept": [] },
-    { "id": "fil-03", "lang": "fil", "text": "Kumusta ka?", "romanization": "", "ipa": "/ku\u02C8musta ka/", "accept": [] }
+    { "id": "fil-03", "lang": "fil", "text": "Kumusta ka?", "romanization": "", "ipa": "/ku\u02C8musta ka/", "accept": [] },
+
+    /* =============================================================== *
+     *  LEVEL BANKS (added for difficulty selector).                    *
+     *  All phrases ABOVE default to level "medium" at selection time.  *
+     *  EASY   = single word.   INTERMEDIATE = full everyday sentence.  *
+     *  NOTE: new IPA/romanisation is broad and marked "verify": true — *
+     *  have a native speaker confirm before public/competition use.    *
+     * =============================================================== */
+
+    /* ---- EASY (single words) ---- */
+    { "id": "en-e1", "lang": "en", "level": "easy", "text": "Hello", "romanization": "", "ipa": "/h\u0259\u02C8lo\u028A/", "accept": [], "verify": true },
+    { "id": "en-e2", "lang": "en", "level": "easy", "text": "Thanks", "romanization": "", "ipa": "/\u03B8\u00E6\u014Bks/", "accept": ["thank you"], "verify": true },
+    { "id": "en-e3", "lang": "en", "level": "easy", "text": "Please", "romanization": "", "ipa": "/pli\u02D0z/", "accept": [], "verify": true },
+    { "id": "zh-e1", "lang": "zh", "level": "easy", "text": "\u4F60\u597D", "romanization": "n\u01D0 h\u01CEo", "ipa": "/ni\u02E7\u02E5 xa\u028A\u02E8\u02E9\u02E6/", "accept": [], "verify": true },
+    { "id": "zh-e2", "lang": "zh", "level": "easy", "text": "\u8C22\u8C22", "romanization": "xi\u00E8xie", "ipa": "/\u0255j\u025B\u02E5\u02E9 \u0255j\u025B/", "accept": [], "verify": true },
+    { "id": "zh-e3", "lang": "zh", "level": "easy", "text": "\u518D\u89C1", "romanization": "z\u00E0iji\u00E0n", "ipa": "/tsai\u02E5\u02E9 t\u0255j\u025Bn\u02E5\u02E9/", "accept": [], "verify": true },
+    { "id": "ta-e1", "lang": "ta", "level": "easy", "text": "\u0BB5\u0BA3\u0B95\u0BCD\u0B95\u0BAE\u0BCD", "romanization": "va\u1E47akkam", "ipa": "/\u028Ba\u0273akkam/", "accept": [], "verify": true },
+    { "id": "ta-e2", "lang": "ta", "level": "easy", "text": "\u0BA8\u0BA9\u0BCD\u0BB1\u0BBF", "romanization": "na\u1E49\u1E5Fi", "ipa": "/n\u032Fanri/", "accept": [], "verify": true },
+    { "id": "hi-e1", "lang": "hi", "level": "easy", "text": "\u0928\u092E\u0938\u094D\u0924\u0947", "romanization": "namaste", "ipa": "/n\u0259m\u0259ste\u02D0/", "accept": [], "verify": true },
+    { "id": "hi-e2", "lang": "hi", "level": "easy", "text": "\u0927\u0928\u094D\u092F\u0935\u093E\u0926", "romanization": "dhanyav\u0101d", "ipa": "/d\u032A\u0361\u0292\u0259nj\u0259\u028Ba\u02D0d\u032A/", "accept": [], "verify": true },
+    { "id": "ms-e1", "lang": "ms", "level": "easy", "text": "Terima kasih", "romanization": "", "ipa": "/t\u0259rima kasih/", "accept": ["kasih"], "verify": true },
+    { "id": "ms-e2", "lang": "ms", "level": "easy", "text": "Maaf", "romanization": "", "ipa": "/maaf/", "accept": [], "verify": true },
+    { "id": "id-e1", "lang": "id", "level": "easy", "text": "Halo", "romanization": "", "ipa": "/halo/", "accept": [], "verify": true },
+    { "id": "id-e2", "lang": "id", "level": "easy", "text": "Terima kasih", "romanization": "", "ipa": "/t\u0259rima kasih/", "accept": [], "verify": true },
+    { "id": "th-e1", "lang": "th", "level": "easy", "text": "\u0E2A\u0E27\u0E31\u0E2A\u0E14\u0E35", "romanization": "sawatdi", "ipa": "/s\u00E0.w\u00E0t.di\u02D0/", "accept": ["\u0E2A\u0E27\u0E31\u0E2A\u0E14\u0E35\u0E04\u0E23\u0E31\u0E1A","\u0E2A\u0E27\u0E31\u0E2A\u0E14\u0E35\u0E04\u0E48\u0E30"], "verify": true },
+    { "id": "th-e2", "lang": "th", "level": "easy", "text": "\u0E02\u0E2D\u0E1A\u0E04\u0E38\u0E13", "romanization": "khop khun", "ipa": "/k\u02B0\u0254\u0300\u02D0p k\u02B0un/", "accept": [], "verify": true },
+    { "id": "my-e1", "lang": "my", "level": "easy", "text": "\u1019\u1004\u103A\u1039\u1002\u101C\u102C\u1015\u102B", "romanization": "mingalaba", "ipa": "/m\u026A\u0300\u0273\u0261\u0259l\u00E0b\u00E0/", "accept": [], "verify": true },
+    { "id": "my-e2", "lang": "my", "level": "easy", "text": "\u1000\u103B\u1031\u1038\u1007\u1030\u1038\u1010\u1004\u103A\u1015\u102B\u1010\u101A\u103A", "romanization": "kyei zu tin ba de", "ipa": "/t\u0255\u00E9z\u00FA t\u026A\u0300\u0273 b\u00E0 d\u025B\u0300/", "accept": [], "verify": true },
+    { "id": "vi-e1", "lang": "vi", "level": "easy", "text": "Ch\u00E0o", "romanization": "", "ipa": "/t\u0361\u0255a\u02D0w\u02E8\u02E9/", "accept": ["xin ch\u00E0o"], "verify": true },
+    { "id": "vi-e2", "lang": "vi", "level": "easy", "text": "C\u1EA3m \u01A1n", "romanization": "", "ipa": "/ka\u02D0m\u02E7\u02E9\u02E7 \u0294\u0259\u02D0n\u02E7/", "accept": [], "verify": true },
+    { "id": "fr-e1", "lang": "fr", "level": "easy", "text": "Bonjour", "romanization": "", "ipa": "/b\u0254\u0303\u0292u\u0281/", "accept": [], "verify": true },
+    { "id": "fr-e2", "lang": "fr", "level": "easy", "text": "Merci", "romanization": "", "ipa": "/m\u025B\u0281si/", "accept": [], "verify": true },
+    { "id": "de-e1", "lang": "de", "level": "easy", "text": "Hallo", "romanization": "", "ipa": "/\u02C8halo\u02D0/", "accept": [], "verify": true },
+    { "id": "de-e2", "lang": "de", "level": "easy", "text": "Danke", "romanization": "", "ipa": "/\u02C8da\u014Bk\u0259/", "accept": [], "verify": true },
+    { "id": "es-e1", "lang": "es", "level": "easy", "text": "Hola", "romanization": "", "ipa": "/\u02C8ola/", "accept": [], "verify": true },
+    { "id": "es-e2", "lang": "es", "level": "easy", "text": "Gracias", "romanization": "", "ipa": "/\u02C8\u0261\u027Aa\u03B8jas/", "accept": [], "verify": true },
+    { "id": "he-e1", "lang": "he", "level": "easy", "text": "\u05E9\u05DC\u05D5\u05DD", "romanization": "shalom", "ipa": "/\u0283a\u02C8lom/", "accept": [], "verify": true },
+    { "id": "he-e2", "lang": "he", "level": "easy", "text": "\u05EA\u05D5\u05D3\u05D4", "romanization": "toda", "ipa": "/to\u02C8da/", "accept": [], "verify": true },
+    { "id": "ar-e1", "lang": "ar", "level": "easy", "text": "\u0645\u0631\u062D\u0628\u0627", "romanization": "mar\u1E25aban", "ipa": "/mar\u0127aban/", "accept": ["\u0645\u0631\u062D\u0628\u0627\u064B"], "verify": true },
+    { "id": "ar-e2", "lang": "ar", "level": "easy", "text": "\u0634\u0643\u0631\u0627", "romanization": "shukran", "ipa": "/\u0283ukran/", "accept": ["\u0634\u0643\u0631\u0627\u064B"], "verify": true },
+    { "id": "ru-e1", "lang": "ru", "level": "easy", "text": "\u041F\u0440\u0438\u0432\u0435\u0442", "romanization": "privet", "ipa": "/pr\u02B2\u0069\u02C8v\u02B2et/", "accept": [], "verify": true },
+    { "id": "ru-e2", "lang": "ru", "level": "easy", "text": "\u0421\u043F\u0430\u0441\u0438\u0431\u043E", "romanization": "spasibo", "ipa": "/sp\u0250\u02C8s\u02B2ib\u0259/", "accept": [], "verify": true },
+    { "id": "ja-e1", "lang": "ja", "level": "easy", "text": "\u3069\u3046\u3082", "romanization": "doumo", "ipa": "/do\u02D0mo/", "accept": [], "verify": true },
+    { "id": "ja-e2", "lang": "ja", "level": "easy", "text": "\u306F\u3044", "romanization": "hai", "ipa": "/hai/", "accept": [], "verify": true },
+    { "id": "ko-e1", "lang": "ko", "level": "easy", "text": "\uC548\uB155", "romanization": "annyeong", "ipa": "/an\u0272\u028Ao\u014B/", "accept": [], "verify": true },
+    { "id": "ko-e2", "lang": "ko", "level": "easy", "text": "\uAC10\uC0AC", "romanization": "gamsa", "ipa": "/kamsa/", "accept": [], "verify": true },
+    { "id": "it-e1", "lang": "it", "level": "easy", "text": "Ciao", "romanization": "", "ipa": "/\u02C8t\u0255ao/", "accept": [], "verify": true },
+    { "id": "it-e2", "lang": "it", "level": "easy", "text": "Grazie", "romanization": "", "ipa": "/\u02C8\u0261rattsje/", "accept": [], "verify": true },
+    { "id": "pt-e1", "lang": "pt", "level": "easy", "text": "Ol\u00E1", "romanization": "", "ipa": "/\u0254\u02C8la/", "accept": [], "verify": true },
+    { "id": "pt-e2", "lang": "pt", "level": "easy", "text": "Obrigado", "romanization": "", "ipa": "/ob\u027Ei\u02C8\u0261adu/", "accept": ["obrigada"], "verify": true },
+    { "id": "fil-e1", "lang": "fil", "level": "easy", "text": "Kumusta", "romanization": "", "ipa": "/ku\u02C8musta/", "accept": [], "verify": true },
+    { "id": "fil-e2", "lang": "fil", "level": "easy", "text": "Salamat", "romanization": "", "ipa": "/sa\u02C8lamat/", "accept": [], "verify": true },
+
+    /* ---- INTERMEDIATE (full everyday sentences) ---- */
+    { "id": "en-i1", "lang": "en", "level": "intermediate", "text": "Could you help me find the station?", "romanization": "", "ipa": "/k\u028Ad ju\u02D0 h\u025Blp mi\u02D0 fa\u026And \u00F0\u0259 \u02C8ste\u026A\u0283n\u0329/", "accept": ["can you help me find the station"], "verify": true },
+    { "id": "en-i2", "lang": "en", "level": "intermediate", "text": "I would like a cup of coffee, please.", "romanization": "", "ipa": "/a\u026A w\u028Ad la\u026Ak \u0259 k\u028Cp \u0259v \u02C8k\u0252fi pli\u02D0z/", "accept": [], "verify": true },
+    { "id": "zh-i1", "lang": "zh", "level": "intermediate", "text": "\u8BF7\u95EE\u6D17\u624B\u95F4\u5728\u54EA\u91CC", "romanization": "q\u01D0ngw\u00E8n x\u01D0sh\u01D2uji\u0101n z\u00E0i n\u01D0li", "ipa": "/t\u0255\u02B0i\u014B w\u0259n \u0255i \u0282o\u028A t\u0255j\u025Bn tsai na li/", "accept": [], "verify": true },
+    { "id": "zh-i2", "lang": "zh", "level": "intermediate", "text": "\u6211\u60F3\u4E70\u4E00\u676F\u5496\u5561", "romanization": "w\u01D2 xi\u01CEng m\u01CEi y\u00E0 b\u0113i k\u0101f\u0113i", "ipa": "/wo \u0255j\u0251\u014B mai i pei k\u02B0a fei/", "accept": [], "verify": true },
+    { "id": "ta-i1", "lang": "ta", "level": "intermediate", "text": "\u0BA8\u0BC0\u0B99\u0BCD\u0B95\u0BB3\u0BCD \u0B8E\u0BAA\u0BCD\u0BAA\u0B9F\u0BBF \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95\u0BBF\u0BB1\u0BC0\u0BB0\u0BCD\u0B95\u0BB3\u0BCD", "romanization": "n\u012B\u1E45ka\u1E37 eppa\u1E6Di irukk\u012Br\u012Brka\u1E37", "ipa": "/ni\u02D0\u014Bka\u026F eppa\u027Ai iru\u027ki\u02D0\u027Ki\u02D0rka\u026F/", "accept": [], "verify": true },
+    { "id": "hi-i1", "lang": "hi", "level": "intermediate", "text": "\u0915\u094D\u092F\u093E \u0906\u092A \u092E\u0947\u0930\u0940 \u092E\u0926\u0926 \u0915\u0930 \u0938\u0915\u0924\u0947 \u0939\u0948\u0902", "romanization": "ky\u0101 \u0101p mer\u012B madad kar sakte hai\u1E41", "ipa": "/kja\u02D0 a\u02D0p me\u02D0ri\u02D0 m\u0259d\u0259d k\u0259r s\u0259kte\u02D0 h\u025B\u0303/", "accept": [], "verify": true },
+    { "id": "ms-i1", "lang": "ms", "level": "intermediate", "text": "Boleh saya minta bantuan anda?", "romanization": "", "ipa": "/bole\u0068 saja minta bantuan anda/", "accept": [], "verify": true },
+    { "id": "id-i1", "lang": "id", "level": "intermediate", "text": "Bisakah Anda membantu saya?", "romanization": "", "ipa": "/bisakah anda m\u0259mbantu saja/", "accept": [], "verify": true },
+    { "id": "th-i1", "lang": "th", "level": "intermediate", "text": "\u0E2B\u0E49\u0E2D\u0E07\u0E19\u0E49\u0E33\u0E2D\u0E22\u0E39\u0E48\u0E17\u0E35\u0E48\u0E44\u0E2B\u0E19", "romanization": "h\u00F4ng n\u00E1m y\u00F9 th\u00EE n\u01D0i", "ipa": "/h\u00F4\u014B n\u00E1\u02D0m j\u00F9\u02D0 t\u02B0i\u02D0 n\u01D0j/", "accept": [], "verify": true },
+    { "id": "my-i1", "lang": "my", "level": "intermediate", "text": "\u1000\u103B\u103D\u1014\u103A\u102F\u1015\u103A\u1000\u102D\u102F \u1000\u1030\u100A\u102E\u1015\u1031\u1038\u1015\u102B", "romanization": "kyanou-ko ku-nyi pei-ba", "ipa": "/t\u0255\u0259n\u0254 ko\u0301 ku\u0301 \u0272i\u0301 pe\u0301 ba\u0300/", "accept": [], "verify": true },
+    { "id": "vi-i1", "lang": "vi", "level": "intermediate", "text": "B\u1EA1n c\u00F3 th\u1EC3 gi\u00FAp t\u00F4i kh\u00F4ng?", "romanization": "", "ipa": "/\u0253a\u02D0n\u02E7\u02E8\u0294 k\u0254\u02E7\u02E5 t\u02B0e\u02E7\u02E5 z\u0075p\u02E7\u02E5 toj\u02E7 x\u0250\u0273\u02E7\u02E5/", "accept": [], "verify": true },
+    { "id": "fr-i1", "lang": "fr", "level": "intermediate", "text": "Pourriez-vous m'aider, s'il vous pla\u00EEt ?", "romanization": "", "ipa": "/pu\u0281je vu m\u025Bde sil vu pl\u025B/", "accept": ["pouvez-vous m'aider"], "verify": true },
+    { "id": "fr-i2", "lang": "fr", "level": "intermediate", "text": "Je voudrais un caf\u00E9, s'il vous pla\u00EEt.", "romanization": "", "ipa": "/\u0292\u0259 vud\u0281\u025B \u1EBD kafe sil vu pl\u025B/", "accept": [], "verify": true },
+    { "id": "de-i1", "lang": "de", "level": "intermediate", "text": "K\u00F6nnen Sie mir bitte helfen?", "romanization": "", "ipa": "/\u02C8k\u0153n\u0259n zi\u02D0 mi\u02D0\u0250 \u02C8b\u026At\u0259 \u02C8h\u025Blfn\u0329/", "accept": [], "verify": true },
+    { "id": "es-i1", "lang": "es", "level": "intermediate", "text": "\u00BFPodr\u00EDa ayudarme, por favor?", "romanization": "", "ipa": "/po\u02C8\u00F0\u027Eia aju\u02C8\u00F0a\u027Ame po\u027E fa\u02C8\u03B2o\u027E/", "accept": [], "verify": true },
+    { "id": "he-i1", "lang": "he", "level": "intermediate", "text": "\u05D0\u05EA\u05D4 \u05D9\u05DB\u05D5\u05DC \u05DC\u05E2\u05D6\u05D5\u05E8 \u05DC\u05D9?", "romanization": "ata yakhol la'azor li", "ipa": "/a\u02C8ta ja\u02C8xol la.a\u02C8zo\u0281 li/", "accept": [], "verify": true },
+    { "id": "ar-i1", "lang": "ar", "level": "intermediate", "text": "\u0647\u0644 \u064A\u0645\u0643\u0646\u0643 \u0645\u0633\u0627\u0639\u062F\u062A\u064A\u061F", "romanization": "hal yumkinuka mus\u0101\u02BFadat\u012B", "ipa": "/hal jumkinuka musa\u02D0\u0295adati\u02D0/", "accept": [], "verify": true },
+    { "id": "ru-i1", "lang": "ru", "level": "intermediate", "text": "\u0412\u044B \u043C\u043E\u0436\u0435\u0442\u0435 \u043C\u043D\u0435 \u043F\u043E\u043C\u043E\u0447\u044C?", "romanization": "vy mozhete mne pomoch", "ipa": "/v\u0268 \u02C8mo\u0292\u0268t\u02B2e mn\u02B2e p\u0250\u02C8mot\u0255/", "accept": [], "verify": true },
+    { "id": "ja-i1", "lang": "ja", "level": "intermediate", "text": "\u624B\u4F1D\u3063\u3066\u3082\u3089\u3048\u307E\u3059\u304B", "romanization": "tetsudatte moraemasu ka", "ipa": "/tetsudatte moraemas\u0289 ka/", "accept": [], "verify": true },
+    { "id": "ko-i1", "lang": "ko", "level": "intermediate", "text": "\uB3C4\uC640\uC90C \uC218 \uC788\uC5B4\uC694?", "romanization": "dowajul su isseoyo", "ipa": "/towad\u0291ul su i\u2019s\u028C\u02D0j\u028F/", "accept": [], "verify": true },
+    { "id": "it-i1", "lang": "it", "level": "intermediate", "text": "Potrebbe aiutarmi, per favore?", "romanization": "", "ipa": "/po\u02C8trebbe aju\u02C8tarmi per fa\u02C8vore/", "accept": [], "verify": true },
+    { "id": "pt-i1", "lang": "pt", "level": "intermediate", "text": "Voc\u00EA poderia me ajudar, por favor?", "romanization": "", "ipa": "/vo\u02C8se pode\u02C8\u027Ei.\u0250 mi a\u0292u\u02C8da\u027E po\u027E fa\u02C8vo\u027E/", "accept": [], "verify": true },
+    { "id": "fil-i1", "lang": "fil", "level": "intermediate", "text": "Maaari mo ba akong tulungan?", "romanization": "", "ipa": "/ma.a\u02C8a\u027Ei mo ba a\u02C8ko\u014B tu\u02C8lu\u014Ban/", "accept": [], "verify": true }
   ]
 };
 
@@ -945,15 +1075,21 @@ const Store = (function () {
     return run;
   }
 
-  // Leaderboard: final time ascending; tie broken by fewer hints (R9.3)
-  function leaderboard(limit = 10) {
-    const runs = _read().runs.slice();
+  // Leaderboard: final time ascending; tie broken by fewer hints (R9.3).
+  // Optional `level` filters to a single difficulty so runs are comparable.
+  function leaderboard(limit = 10, level = null) {
+    let runs = _read().runs.slice();
+    if (level) runs = runs.filter(r => (r.level || 'medium') === level);
     runs.sort((a, b) => (a.finalTimeMs - b.finalTimeMs) || (a.hints - b.hints) || (a.createdAt - b.createdAt));
     return limit ? runs.slice(0, limit) : runs;
   }
 
+  // Rank within the run's own difficulty (per-level ranking).
   function rankOf(runId) {
-    const sorted = leaderboard(0);
+    const all = _read().runs;
+    const me = all.find(r => r.id === runId);
+    const lvl = me ? (me.level || 'medium') : null;
+    const sorted = leaderboard(0, lvl);
     const idx = sorted.findIndex(r => r.id === runId);
     return idx < 0 ? null : idx + 1;
   }
@@ -967,18 +1103,18 @@ const Store = (function () {
   }
   function toCSV() {
     const cols = [
-      'runId','createdAt','name','age','gender',
+      'runId','createdAt','name','age','gender','level',
       'finalTimeMs','elapsedMs','penaltyMs','bonusMs','hints','skips','perfects','maxCombo',
-      'stageIndex','lang','phraseId','target','heard','similarity','threshold',
+      'stageIndex','lang','phraseId','phraseLevel','target','heard','similarity','threshold',
       'attempts','stageHints','passed','skipped','perfect','stageMs'
     ];
     const rows = [cols.join(',')];
     for (const r of _read().runs) {
       for (const st of r.stages) {
         rows.push([
-          r.id, new Date(r.createdAt).toISOString(), r.player.name, r.player.age, r.player.gender,
+          r.id, new Date(r.createdAt).toISOString(), r.player.name, r.player.age, r.player.gender, (r.level || 'medium'),
           r.finalTimeMs, r.elapsedMs, r.penaltyMs, r.bonusMs, r.hints, r.skips, r.perfects, r.maxCombo,
-          st.index, st.lang, st.phraseId, st.target, st.heard, st.similarity, st.threshold,
+          st.index, st.lang, st.phraseId, (st.phraseLevel || ''), st.target, st.heard, st.similarity, st.threshold,
           st.attempts, st.hints, st.passed, st.skipped, st.perfect, st.stageMs
         ].map(_csvCell).join(','));
       }
@@ -1764,10 +1900,27 @@ const UI = (function () {
  *  (design §5, R3)                                                  *
  * ================================================================= */
 const Eligibility = (function () {
-  // eligible if bundled MP3 for ≥1 phrase OR a matching speechSynthesis voice
-  async function langEligible(code) {
+  // A phrase's effective level: explicit `level` field, else 'medium'.
+  function phraseLevel(p) { return p.level || 'medium'; }
+
+  // Phrases for a language at a level, honouring the fallback chain so a
+  // language is never unplayable just because it lacks that exact tier.
+  function phrasesFor(code, level) {
+    const all = PHRASES.phrases.filter(p => p.lang === code);
+    const chain = CONFIG.levelFallback[level] || [level];
+    for (const lv of chain) {
+      const hit = all.filter(p => phraseLevel(p) === lv);
+      if (hit.length) return hit;
+    }
+    return all; // last resort: anything for this language
+  }
+
+  // eligible if it has ≥1 phrase (at level, with fallback) AND
+  // (bundled MP3 for ≥1 phrase OR a matching speechSynthesis voice)
+  async function langEligible(code, level) {
     const L = LANGS[code];
     if (!L) return false;
+    if (!phrasesFor(code, level || CONFIG.defaultLevel).length) return false;
     if (Audio2.hasVoice(L.tts)) return true;
     if (CONFIG.useBundledAudio) {
       const phrases = PHRASES.phrases.filter(p => p.lang === code);
@@ -1779,12 +1932,13 @@ const Eligibility = (function () {
   }
 
   // Build the run's language list: en first, then 9 random eligible from pool,
-  // backfilled from backupLanguages. Returns {langs, substituted[]}
-  async function buildPool() {
+  // backfilled from backupLanguages. Returns {langs, substituted[], level}
+  async function buildPool(level) {
+    level = level || CONFIG.defaultLevel;
     const substituted = [];
     const eligiblePool = [];
     for (const code of CONFIG.pool) {
-      if (await langEligible(code)) eligiblePool.push(code);
+      if (await langEligible(code, level)) eligiblePool.push(code);
     }
     // shuffle
     const shuffled = eligiblePool.slice();
@@ -1805,18 +1959,19 @@ const Eligibility = (function () {
       for (const code of backups) {
         if (chosen.length >= need) break;
         if (chosen.includes(code)) continue;
-        if (await langEligible(code)) { chosen.push(code); substituted.push(code); }
+        if (await langEligible(code, level)) { chosen.push(code); substituted.push(code); }
       }
     }
-    return { langs: [CONFIG.firstLanguage, ...chosen], substituted, eligibleCount: eligiblePool.length };
+    return { langs: [CONFIG.firstLanguage, ...chosen], substituted, eligibleCount: eligiblePool.length, level };
   }
 
-  function randomPhrase(code) {
-    const bank = PHRASES.phrases.filter(p => p.lang === code);
+  // Pick a random phrase for a language at the chosen level (with fallback).
+  function randomPhrase(code, level) {
+    const bank = phrasesFor(code, level || CONFIG.defaultLevel);
     return bank[Math.floor(Math.random() * bank.length)];
   }
 
-  return { langEligible, buildPool, randomPhrase };
+  return { langEligible, buildPool, randomPhrase, phrasesFor, phraseLevel };
 })();
 
 /* ================================================================= *
@@ -1825,6 +1980,7 @@ const Eligibility = (function () {
 const Game = (function () {
   let player = null;
   let langs = [];              // order played
+  let level = CONFIG.defaultLevel;  // difficulty for this run
   let stageIdx = 0;
   let run = null;              // Run record
   let usedLangs = new Set();   // for swap selection
@@ -1846,6 +2002,7 @@ const Game = (function () {
       id: 'run-' + Date.now() + '-' + Math.floor(Math.random()*1e6),
       createdAt: Date.now(),
       player: { name: player.name, age: player.age, gender: player.gender },
+      level: level,
       finalTimeMs: 0, elapsedMs: 0, penaltyMs: 0, bonusMs: 0,
       hints: 0, skips: 0, perfects: 0, maxCombo: 0,
       languages: [], swaps: [], stages: [],
@@ -1887,6 +2044,7 @@ const Game = (function () {
   /* ---- begin a run ---- */
   async function begin(poolResult) {
     langs = poolResult.langs;
+    level = poolResult.level || CONFIG.defaultLevel;
     newRun();
     run.languages = langs.slice();
     if (poolResult.substituted && poolResult.substituted.length) {
@@ -1918,7 +2076,7 @@ const Game = (function () {
   /* ---- stage lifecycle ---- */
   function startStage() {
     const lang = langs[stageIdx];
-    const phrase = Eligibility.randomPhrase(lang);
+    const phrase = Eligibility.randomPhrase(lang, level);
     cur = {
       lang, phrase, attempts: 0, hints: 0, perfect: false,
       passed: false, skipped: false, attemptLog: [], bestSim: 0,
@@ -2031,6 +2189,7 @@ const Game = (function () {
       index: stageIdx,
       lang: cur.lang,
       phraseId: cur.phrase.id,
+      phraseLevel: (cur.phrase.level || 'medium'),
       target: cur.phrase.text,
       heard: (cur.attemptLog[cur.attemptLog.length - 1] || {}).heard || '',
       similarity: +cur.bestSim.toFixed(4),
@@ -2105,7 +2264,7 @@ const Game = (function () {
     usedLangs.add(repl);
     langs[stageIdx] = repl;
     cur.lang = repl;
-    cur.phrase = Eligibility.randomPhrase(repl);
+    cur.phrase = Eligibility.randomPhrase(repl, level);
     UI.toast(`${LANGS[from].name} unsupported — swapped to ${LANGS[repl].name}`);
     UI.setChips(langs, stageIdx, passedSet);
     UI.renderBarrierCard(cur.phrase);
@@ -2153,12 +2312,22 @@ const Game = (function () {
  *  RESULTS + LEADERBOARD (R10)                                      *
  * ================================================================= */
 const Results = (function () {
+  let lbLevel = CONFIG.defaultLevel;   // current leaderboard filter
+  let lbCurrentId = null;
+
+  function levelLabel(key) {
+    const lv = CONFIG.levels.find(l => l.key === key);
+    return lv ? lv.label : String(key || '').toUpperCase();
+  }
+
   function render(run) {
     const t = UI.fmtTime(run.finalTimeMs);
     el('resFinal').textContent = `${t.mm}:${t.ss}.${t.cc}`;
     const rank = Store.rankOf(run.id);
+    const runLevel = run.level || 'medium';
     el('resStats').innerHTML = `
-      <div class="stat"><b>${rank ? '#' + rank : '—'}</b><span>Rank</span></div>
+      <div class="stat"><b><span class="level-tag">${levelLabel(runLevel)}</span></b><span>Difficulty</span></div>
+      <div class="stat"><b>${rank ? '#' + rank : '—'}</b><span>Rank (${levelLabel(runLevel)})</span></div>
       <div class="stat"><b>${run.hints}</b><span>Hints</span></div>
       <div class="stat"><b>${run.skips}</b><span>Skips</span></div>
       <div class="stat"><b>${run.perfects}</b><span>Perfects</span></div>
@@ -2181,14 +2350,29 @@ const Results = (function () {
     el('resTable').innerHTML =
       `<thead><tr><th>#</th><th>Language</th><th class="native">Phrase</th><th class="native">Heard</th><th>SYNC</th><th>Att.</th><th>Result</th></tr></thead>
        <tbody>${rows}</tbody>`;
+    lbLevel = runLevel;           // default the leaderboard to this run's difficulty
     renderLeaderboard(run.id);
   }
 
+  function renderFilter() {
+    const box = el('lbFilter');
+    box.innerHTML = '';
+    CONFIG.levels.forEach(lv => {
+      const b = document.createElement('div');
+      b.className = 'opt' + (lv.key === lbLevel ? ' sel' : '');
+      b.textContent = lv.label;
+      b.addEventListener('click', () => { lbLevel = lv.key; renderLeaderboard(lbCurrentId); });
+      box.appendChild(b);
+    });
+  }
+
   function renderLeaderboard(currentId) {
-    const top = Store.leaderboard(10);
+    if (currentId !== undefined) lbCurrentId = currentId;
+    renderFilter();
+    const top = Store.leaderboard(10, lbLevel);
     const rows = top.map((r, i) => {
       const t = UI.fmtTime(r.finalTimeMs);
-      return `<tr class="${r.id === currentId ? 'me' : ''}">
+      return `<tr class="${r.id === lbCurrentId ? 'me' : ''}">
         <td class="rank-badge">${i + 1}</td>
         <td>${UI.escapeHtml(r.player.name)}</td>
         <td>${t.mm}:${t.ss}.${t.cc}</td>
@@ -2196,7 +2380,7 @@ const Results = (function () {
         <td>${r.skips}</td>
         <td>x${r.maxCombo}</td>
       </tr>`;
-    }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--text-dim)">No runs yet</td></tr>`;
+    }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--text-dim)">No runs at ${levelLabel(lbLevel)} yet</td></tr>`;
     el('lbTable').innerHTML =
       `<thead><tr><th>Rank</th><th>Name</th><th>Time</th><th>Hints</th><th>Skips</th><th>Combo</th></tr></thead>
        <tbody>${rows}</tbody>`;
@@ -2279,16 +2463,46 @@ async function runBoot() {
 }
 
 /* ---- Registration (R1, R14) ---- */
+let SELECTED_LEVEL = CONFIG.defaultLevel;
+
 function sanitizeName(s) {
   // strip HTML tags + decode-safe: keep plain text only (R1.4)
   const tmp = document.createElement('div');
   tmp.textContent = String(s);
   return tmp.textContent.replace(/[<>]/g, '').trim();
 }
+
+function buildLevelSelector() {
+  const seg = el('levelSeg');
+  seg.innerHTML = '';
+  CONFIG.levels.forEach(lv => {
+    const b = document.createElement('div');
+    b.className = 'opt' + (lv.key === SELECTED_LEVEL ? ' sel' : '');
+    b.setAttribute('role', 'radio');
+    b.setAttribute('tabindex', '0');
+    b.setAttribute('aria-checked', lv.key === SELECTED_LEVEL ? 'true' : 'false');
+    b.dataset.level = lv.key;
+    b.innerHTML = `<div class="name">${lv.label}</div><div class="blurb">${lv.blurb}</div>`;
+    const pick = () => {
+      SELECTED_LEVEL = lv.key;
+      Array.from(seg.children).forEach(c => {
+        const on = c.dataset.level === SELECTED_LEVEL;
+        c.classList.toggle('sel', on);
+        c.setAttribute('aria-checked', on ? 'true' : 'false');
+      });
+      el('f-level').classList.remove('invalid');
+    };
+    b.addEventListener('click', pick);
+    b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+    seg.appendChild(b);
+  });
+}
+
 function wireRegister() {
+  buildLevelSelector();
   const setInvalid = (fieldId, bad) => el(fieldId).classList.toggle('invalid', bad);
 
-  el('regStart').addEventListener('click', () => {
+  el('regStart').addEventListener('click', async () => {
     const rawName = el('in-name').value;
     const name = sanitizeName(rawName);
     const ageVal = el('in-age').value;
@@ -2299,18 +2513,28 @@ function wireRegister() {
     const nameOk = name.length >= 1 && name.length <= 20;
     const ageOk = Number.isInteger(age) && age >= 5 && age <= 99;
     const genderOk = ['Male','Female','Prefer not to say'].includes(gender);
+    const levelOk = CONFIG.levels.some(l => l.key === SELECTED_LEVEL);
 
     setInvalid('f-name', !nameOk);
     setInvalid('f-age', !ageOk);
     setInvalid('f-gender', !genderOk);
     setInvalid('f-consent', !consent);
+    setInvalid('f-level', !levelOk);
 
-    if (!(nameOk && ageOk && genderOk && consent)) {
+    if (!(nameOk && ageOk && genderOk && consent && levelOk)) {
       UI.toast('Please complete the highlighted fields.');
       return;
     }
     PLAYER = { name, age, gender };
     Game.setPlayer(PLAYER);
+
+    // Rebuild the pool for the chosen difficulty (eligibility depends on level).
+    el('regStart').disabled = true;
+    POOL_RESULT = await Eligibility.buildPool(SELECTED_LEVEL);
+    el('regStart').disabled = false;
+    if (POOL_RESULT.substituted.length) {
+      UI.toast('Backup languages used: ' + POOL_RESULT.substituted.map(c => LANGS[c].name).join(', '));
+    }
     goMicCheck();
   });
 
@@ -2425,8 +2649,9 @@ function goMicCheck() { MicCheck.enter(); }
 /* ---- results / leaderboard buttons ---- */
 function wireResults() {
   const playAgain = () => {
-    // same player, rebuild pool for variety
-    Eligibility.buildPool().then(pr => { POOL_RESULT = pr; Game.begin(pr); });
+    // same player + same difficulty, rebuild pool for variety
+    const lvl = (Game.run && Game.run.level) || SELECTED_LEVEL;
+    Eligibility.buildPool(lvl).then(pr => { POOL_RESULT = pr; Game.begin(pr); });
   };
   const newPlayer = () => {
     PLAYER = null;

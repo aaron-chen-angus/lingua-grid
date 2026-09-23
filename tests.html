@@ -179,9 +179,71 @@ function run() {
   log(Scorer.isPerfect(0.95) === true, 'isPerfect(0.95) true');
   log(Scorer.isPerfect(0.80) === false, 'isPerfect(0.80) false');
 
+  // 11. Difficulty-level selection logic (mirror of index.html Eligibility)
+  runLevelTests();
+
   const s = document.getElementById('summary');
   s.className = 'summary' + (failN ? ' bad' : '');
   s.textContent = failN ? (`${failN} FAILED, ${passN} passed`) : (`ALL ${passN} TESTS PASSED`);
+}
+
+/* ---- Difficulty level logic (verbatim mirror of index.html Eligibility helpers) ---- */
+const LVL_CONFIG = {
+  defaultLevel: 'medium',
+  levelFallback: {
+    easy: ['easy','medium','intermediate'],
+    medium: ['medium','easy','intermediate'],
+    intermediate: ['intermediate','medium','easy']
+  }
+};
+function phraseLevel(p) { return p.level || 'medium'; }
+function phrasesFor(bank, code, level) {
+  const all = bank.filter(p => p.lang === code);
+  const chain = LVL_CONFIG.levelFallback[level] || [level];
+  for (const lv of chain) {
+    const hit = all.filter(p => phraseLevel(p) === lv);
+    if (hit.length) return hit;
+  }
+  return all;
+}
+
+function runLevelTests() {
+  // sample bank: xx has all 3 levels; yy has only medium; zz has only easy
+  const bank = [
+    { id:'xx-e', lang:'xx', level:'easy',         text:'word' },
+    { id:'xx-m', lang:'xx',                        text:'short phrase' },  // no level => medium
+    { id:'xx-i', lang:'xx', level:'intermediate', text:'a full sentence here' },
+    { id:'yy-m', lang:'yy',                        text:'medium only' },
+    { id:'zz-e', lang:'zz', level:'easy',          text:'hi' }
+  ];
+
+  // exact-level hits
+  log(phrasesFor(bank,'xx','easy').every(p => phraseLevel(p)==='easy') && phrasesFor(bank,'xx','easy').length===1, 'xx EASY -> only easy phrase');
+  log(phrasesFor(bank,'xx','medium').every(p => phraseLevel(p)==='medium'), 'xx MEDIUM -> medium (untagged) phrase');
+  log(phrasesFor(bank,'xx','intermediate').every(p => phraseLevel(p)==='intermediate'), 'xx INTERMEDIATE -> intermediate phrase');
+
+  // untagged phrase counts as medium
+  log(phraseLevel({lang:'xx', text:'x'})==='medium', 'untagged phrase treated as medium');
+
+  // fallback: yy has no easy -> falls back to medium (per easy chain: easy,medium,intermediate)
+  const yyEasy = phrasesFor(bank,'yy','easy');
+  log(yyEasy.length===1 && yyEasy[0].id==='yy-m', 'yy EASY falls back to medium');
+
+  // fallback: zz has no intermediate/medium -> intermediate chain lands on easy
+  const zzInt = phrasesFor(bank,'zz','intermediate');
+  log(zzInt.length===1 && zzInt[0].id==='zz-e', 'zz INTERMEDIATE falls back to easy');
+
+  // A language with no phrases at all returns empty (=> ineligible)
+  log(phrasesFor(bank,'nope','medium').length===0, 'unknown language -> no phrases (ineligible)');
+
+  // Validate the REAL inlined phrase bank shape if present on window (when opened standalone it is not,
+  // so guard it). Ensures every phrase has id/lang/text and level is one of the known keys.
+  if (globalThis.PHRASES && globalThis.PHRASES.phrases) {
+    const ok = globalThis.PHRASES.phrases.every(p =>
+      p.id && p.lang && typeof p.text === 'string' &&
+      ['easy','medium','intermediate'].includes(p.level || 'medium'));
+    log(ok, 'inlined PHRASES bank shape valid');
+  }
 }
 
 // pinyin-pro may load async; give it a tick.
