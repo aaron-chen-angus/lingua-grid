@@ -185,6 +185,9 @@ function run() {
   // 12. Mic-check "ready" acceptance (mirror of index.html readyTest predicate)
   runReadyTests();
 
+  // 13. Weighted language selection (mirror of index.html weightedSample)
+  runWeightTests();
+
   const s = document.getElementById('summary');
   s.className = 'summary' + (failN ? ' bad' : '');
   s.textContent = failN ? (`${failN} FAILED, ${passN} passed`) : (`ALL ${passN} TESTS PASSED`);
@@ -265,9 +268,61 @@ function runReadyTests() {
   log(readyAccepts('   ') === false, 'ready-check rejects whitespace only');
 }
 
-// pinyin-pro may load async; give it a tick.
+/* ---- Weighted selection (verbatim mirror of index.html weightedSample) ---- */
+const WEIGHTS = { ja: 3, ko: 3, ar: 0.4 };
+function weightOf(code) {
+  const w = (WEIGHTS[code] != null) ? WEIGHTS[code] : 1;
+  return (typeof w === 'number' && w > 0) ? w : 0.0001;
+}
+function weightedSample(pool, count) {
+  const items = pool.slice();
+  const out = [];
+  while (out.length < count && items.length) {
+    const total = items.reduce((s, c) => s + weightOf(c), 0);
+    let r = Math.random() * total, idx = 0;
+    for (; idx < items.length; idx++) { r -= weightOf(items[idx]); if (r <= 0) break; }
+    if (idx >= items.length) idx = items.length - 1;
+    out.push(items[idx]); items.splice(idx, 1);
+  }
+  return out;
+}
+function runWeightTests() {
+  // always returns exactly `count` distinct items when pool is large enough
+  const pool = ['ja','ko','ar','fr','de','es','zh','ta','hi','ms','id','th','vi','ru'];
+  const s = weightedSample(pool, 9);
+  log(s.length === 9, 'weightedSample returns requested count');
+  log(new Set(s).size === 9, 'weightedSample has no duplicates (without replacement)');
+
+  // never exceeds pool size
+  log(weightedSample(['ja','ko'], 9).length === 2, 'weightedSample caps at pool size');
+
+  // statistical: over many single picks, ja beats ar, and ja beats a weight-1 lang
+  const N = 4000;
+  const cnt = { ja: 0, ar: 0, fr: 0 };
+  for (let i = 0; i < N; i++) {
+    const pick = weightedSample(['ja','ar','fr'], 1)[0];
+    cnt[pick]++;
+  }
+  // Expected ratios: ja:fr:ar = 3:1:0.4 → ja≈0.68, fr≈0.23, ar≈0.09
+  log(cnt.ja > cnt.fr && cnt.fr > cnt.ar,
+      'weight order ja > fr(default) > ar', `ja=${cnt.ja} fr=${cnt.fr} ar=${cnt.ar}`);
+  log(cnt.ja > cnt.ar * 3,
+      'Japanese far more likely than Arabic', `ja=${cnt.ja} ar=${cnt.ar}`);
+}
+
+// pinyin-pro may load async; wait up to ~3s, then run anyway (Mandarin-pinyin
+// cases will simply fall back to hanzi comparison if the CDN is unavailable).
+let _waited = 0;
 function boot() {
-  if (typeof globalThis.pinyinPro === 'undefined') { return setTimeout(boot, 50); }
+  if (typeof globalThis.pinyinPro === 'undefined' && _waited < 3000) {
+    _waited += 50; return setTimeout(boot, 50);
+  }
+  if (typeof globalThis.pinyinPro === 'undefined') {
+    const w = document.createElement('div');
+    w.className = 'case'; w.style.borderColor = '#FF7A00'; w.style.color = '#FFB347';
+    w.textContent = 'note: pinyin-pro CDN did not load; Mandarin-pinyin cases may differ.';
+    document.getElementById('out').appendChild(w);
+  }
   run();
 }
 boot();

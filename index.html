@@ -545,6 +545,7 @@ a { color: var(--grid-cyan); }
     <div class="panel wide">
       <h2 class="title">Leaderboard // Top 10</h2>
       <div class="lb-filter" id="lbFilter"></div>
+      <div id="lbSource" class="tagline" style="text-align:center;margin:-4px 0 8px;"></div>
       <div class="tbl-wrap"><table id="lbTable"></table></div>
       <div class="btn-row center">
         <button id="lbBack" class="ghost">Back to results</button>
@@ -639,6 +640,10 @@ const CONFIG = {
   levelFallback: { easy: ['easy','medium','intermediate'], medium: ['medium','easy','intermediate'], intermediate: ['intermediate','medium','easy'] },
   pool: ['zh','ta','hi','ms','id','th','my','vi','fr','de','es','he','ar','ru','ja','ko'],
   backupLanguages: ['it','pt','fil'],
+  // Relative selection weights (higher = more likely to be picked for stages 2–10).
+  // Any language not listed defaults to weight 1. Only affects probability, not
+  // eligibility — a language still needs a voice/MP3 to appear at all.
+  weights: { ja: 3, ko: 3, ar: 0.4 },
   threshold: { default: 0.65, th: 0.55, my: 0.55, ta: 0.55 },
   perfectAt: 0.90,
   perfectBonusMs: 1000,
@@ -648,7 +653,7 @@ const CONFIG = {
   maxListenMs: 7000,
   audioPath: 'audio/',
   useBundledAudio: true,
-  leaderboardWebhook: '',       // set to a webhook URL to POST completed runs
+  leaderboardWebhook: 'https://script.google.com/macros/s/AKfycbytogby5pKtmuarn294q3KdNDCxLLCZtXym0B5Xy_TmcsoZyF5VprYPkRyOdIt5cKqG/exec',  // Google Apps Script web app (POST run, GET top-10)
   storageKey: 'linguagrid.v1',
   voicesTimeoutMs: 2000,
   countdownFrom: 3
@@ -1134,7 +1139,12 @@ const Store = (function () {
   function exportCSV() { download('linguagrid-runs.csv', toCSV(), 'text/csv'); }
   function exportJSON() { download('linguagrid-runs.json', toJSON(), 'application/json'); }
 
-  /* ---- webhook queue with retry (R11.3) ---- */
+  /* ---- webhook queue with retry (R11.3) ----
+   * Google Apps Script /exec does not send CORS headers for arbitrary POSTs,
+   * so we POST as a "simple request" (text/plain body, no custom headers) which
+   * the browser sends without a preflight. We use mode:'no-cors' since we don't
+   * need to read the POST response — success is inferred from no network error.
+   */
   async function flushWebhook() {
     if (!CONFIG.leaderboardWebhook) return;
     const db = _read();
@@ -1142,12 +1152,14 @@ const Store = (function () {
     const still = [];
     for (const run of db.pendingWebhook) {
       try {
-        const res = await fetch(CONFIG.leaderboardWebhook, {
+        await fetch(CONFIG.leaderboardWebhook, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(run)
         });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        // no-cors gives an opaque response we can't inspect; a thrown error
+        // (offline) is the only failure signal, so reaching here = sent.
       } catch (e) {
         still.push(run); // keep for next load
       }
@@ -1159,7 +1171,36 @@ const Store = (function () {
 
   function pendingCount() { return _read().pendingWebhook.length; }
 
-  return { all, save, leaderboard, rankOf, clear, exportCSV, exportJSON, toCSV, toJSON, flushWebhook, pendingCount };
+  /* ---- fetch shared leaderboard from the webhook (GET) ----
+   * Returns [] on any failure (offline, not configured, CORS) so callers
+   * gracefully fall back to the local leaderboard.
+   */
+  async function fetchLeaderboard(level) {
+    if (!CONFIG.leaderboardWebhook) return [];
+    try {
+      const url = CONFIG.leaderboardWebhook + (level ? ('?level=' + encodeURIComponent(level)) : '');
+      const res = await fetch(url, { method: 'GET' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const runs = (data && data.runs) ? data.runs : [];
+      // normalise numeric fields (Sheets may return them as numbers or strings)
+      return runs.map(r => ({
+        id: r.runId || r.id || '',
+        player: { name: r.name || (r.player && r.player.name) || '—' },
+        finalTimeMs: Number(r.finalTimeMs) || 0,
+        hints: Number(r.hints) || 0,
+        skips: Number(r.skips) || 0,
+        maxCombo: Number(r.maxCombo) || 0,
+        level: (r.level || 'medium'),
+        createdAt: r.createdAt ? new Date(r.createdAt).getTime() : 0
+      }));
+    } catch (e) {
+      console.warn('[LINGUA//GRID] fetchLeaderboard failed, using local', e);
+      return [];
+    }
+  }
+
+  return { all, save, leaderboard, rankOf, clear, exportCSV, exportJSON, toCSV, toJSON, flushWebhook, fetchLeaderboard, pendingCount };
 })();
 
 /* ---- Admin panel (Ctrl+Shift+L) — R11.2 ---- */
@@ -1900,6 +1941,30 @@ const UI = (function () {
  *  (design §5, R3)                                                  *
  * ================================================================= */
 const Eligibility = (function () {
+  const weightOf = (code) => {
+    const w = (CONFIG.weights && CONFIG.weights[code] != null) ? CONFIG.weights[code] : 1;
+    return (typeof w === 'number' && w > 0) ? w : 0.0001; // guard against 0/negative
+  };
+
+  // Weighted random selection without replacement.
+  function weightedSample(pool, count) {
+    const items = pool.slice();
+    const out = [];
+    while (out.length < count && items.length) {
+      const total = items.reduce((s, c) => s + weightOf(c), 0);
+      let r = Math.random() * total;
+      let idx = 0;
+      for (; idx < items.length; idx++) {
+        r -= weightOf(items[idx]);
+        if (r <= 0) break;
+      }
+      if (idx >= items.length) idx = items.length - 1;
+      out.push(items[idx]);
+      items.splice(idx, 1);
+    }
+    return out;
+  }
+
   // A phrase's effective level: explicit `level` field, else 'medium'.
   function phraseLevel(p) { return p.level || 'medium'; }
 
@@ -1940,14 +2005,9 @@ const Eligibility = (function () {
     for (const code of CONFIG.pool) {
       if (await langEligible(code, level)) eligiblePool.push(code);
     }
-    // shuffle
-    const shuffled = eligiblePool.slice();
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
+    // Weighted random pick without replacement (higher weight = more likely).
     const need = CONFIG.stages - 1;
-    let chosen = shuffled.slice(0, need);
+    let chosen = weightedSample(eligiblePool, need);
 
     // backfill from backups if short
     if (chosen.length < need) {
@@ -1962,7 +2022,7 @@ const Eligibility = (function () {
         if (await langEligible(code, level)) { chosen.push(code); substituted.push(code); }
       }
     }
-    return { langs: [CONFIG.firstLanguage, ...chosen], substituted, eligibleCount: eligiblePool.length, level };
+    return { langs: [CONFIG.firstLanguage, ...chosen], substituted, eligible: eligiblePool.slice(), eligibleCount: eligiblePool.length, level };
   }
 
   // Pick a random phrase for a language at the chosen level (with fallback).
@@ -2366,13 +2426,28 @@ const Results = (function () {
     });
   }
 
-  function renderLeaderboard(currentId) {
-    if (currentId !== undefined) lbCurrentId = currentId;
-    renderFilter();
-    const top = Store.leaderboard(10, lbLevel);
+  function sortRuns(runs) {
+    return runs.slice().sort((a, b) =>
+      (a.finalTimeMs - b.finalTimeMs) || (a.hints - b.hints) || (a.createdAt - b.createdAt));
+  }
+
+  // Merge shared (webhook) + local runs, dedupe by id, keep top 10 for a level.
+  function mergeRuns(shared, level) {
+    const local = Store.leaderboard(0, level);   // all local at this level
+    const byId = new Map();
+    [...shared, ...local].forEach(r => {
+      if (!r) return;
+      if ((r.level || 'medium') !== level) return;
+      const key = r.id || (r.player.name + '|' + r.finalTimeMs);
+      if (!byId.has(key)) byId.set(key, r);
+    });
+    return sortRuns([...byId.values()]).slice(0, 10);
+  }
+
+  function paint(top, sourceLabel) {
     const rows = top.map((r, i) => {
       const t = UI.fmtTime(r.finalTimeMs);
-      return `<tr class="${r.id === lbCurrentId ? 'me' : ''}">
+      return `<tr class="${r.id && r.id === lbCurrentId ? 'me' : ''}">
         <td class="rank-badge">${i + 1}</td>
         <td>${UI.escapeHtml(r.player.name)}</td>
         <td>${t.mm}:${t.ss}.${t.cc}</td>
@@ -2384,6 +2459,30 @@ const Results = (function () {
     el('lbTable').innerHTML =
       `<thead><tr><th>Rank</th><th>Name</th><th>Time</th><th>Hints</th><th>Skips</th><th>Combo</th></tr></thead>
        <tbody>${rows}</tbody>`;
+    const s = el('lbSource');
+    if (s) s.textContent = sourceLabel;
+  }
+
+  let _lbToken = 0;
+  async function renderLeaderboard(currentId) {
+    if (currentId !== undefined) lbCurrentId = currentId;
+    renderFilter();
+    const level = lbLevel;
+    const token = ++_lbToken;
+
+    // 1. Paint local immediately (instant, works offline).
+    paint(Store.leaderboard(10, level), CONFIG.leaderboardWebhook ? 'Syncing shared leaderboard…' : 'Local leaderboard');
+
+    // 2. If a shared leaderboard is configured, fetch + merge.
+    if (CONFIG.leaderboardWebhook) {
+      const shared = await Store.fetchLeaderboard(level);
+      if (token !== _lbToken || level !== lbLevel) return;  // superseded by a newer render
+      if (shared.length) {
+        paint(mergeRuns(shared, level), 'Shared leaderboard · all players');
+      } else {
+        paint(Store.leaderboard(10, level), 'Shared unavailable — showing local only');
+      }
+    }
   }
 
   return { render, renderLeaderboard };
@@ -2458,8 +2557,13 @@ async function runBoot() {
     if (POOL_RESULT.substituted.length) {
       UI.toast('Backup languages used: ' + POOL_RESULT.substituted.map(c => LANGS[c].name).join(', '));
     }
-    console.log('[LINGUA//GRID] pool:', names.join(' → '),
-                'substituted:', POOL_RESULT.substituted, 'eligible:', POOL_RESULT.eligibleCount);
+    const elig = POOL_RESULT.eligible || [];
+    console.log('[LINGUA//GRID] pool:', names.join(' → '));
+    console.log('[LINGUA//GRID] eligible languages (' + elig.length + '):',
+                elig.map(c => (LANGS[c] ? LANGS[c].name : c)).join(', '));
+    console.log('[LINGUA//GRID] Japanese eligible?', elig.includes('ja'),
+                '| Korean eligible?', elig.includes('ko'),
+                '— if false, this browser has no ja/ko speechSynthesis voice (try Edge, or add bundled MP3s).');
   } catch (e) {
     console.error('[LINGUA//GRID] pool build failed, using fallback', e);
     bootSet('pool', 'working', 'fallback');
